@@ -24,175 +24,185 @@ from noise_models import add_noisy_gate_to_circ, estimate_meas_noise
 from classifier_circuits import *
 from data_gen import *
 from single_qubit_classifier import train_classifier, train_classifier_encoding, ClassificationCircuit
-from plots import plot_correct_classifications, scatter, scatter_red
+from plots import plot_correct_classifications, scatter
 from data_gen import generate_data
+
 
 """
 # Test/Learn optimal encodings in presence of certain noise models
 """
+    
 
-### Firstly, generate for dataset:
-'''
-# We use the transpose of the (scaled to unit square) Moons dataset in order to see a non-linear decision boundary
-'''
-unscaled_data, true_labels = make_moons(n_samples=200, noise=0.05)
-data_moons = np.zeros_like(unscaled_data)
+def main(train=False, encoding_choice='denseangle_param', retrain=False, data_choice='moons', ideal=False, noise=False):
+    
+    ### Firstly, generate for dataset:
+    '''
+    # We use the transpose of the (scaled to unit square) Moons dataset in order to see a non-linear decision boundary
+    '''
+    data_train, data_test, true_labels_train, true_labels_test = generate_data('moons', num_points = 500, split=True)
 
-for ii, point in enumerate(unscaled_data):
-    data_moons[ii] = np.array([point[0]/3+1/3, 2*point[1]/3 + 1/3])
+    ### Next, generate correct classification parameters for dataset (perfect classification):
+    '''
+    # Define parameters of model. Start with DenseAngle encoding with fixed parameters.
+    '''
 
-data_moons[:,[0, 1]] = data_moons[:,[1, 0]]
+    qc_name = '1q-qvm'
+    qc = get_qc(qc_name)
+    num_shots = 300
+    qubits = qc.qubits()
+    init_params = np.random.rand(3)
 
+    init_encoding_params = [np.pi, 2*np.pi]
+    optimiser = 'Powell' 
 
-### Next, generate correct classification parameters for dataset (perfect classification):
-'''
-# Define parameters of model. Start with DenseAngle encoding with fixed parameters.
-'''
+    if train:
+        params, result_unitary_param = train_classifier(qc, num_shots, init_params, encoding_choice, init_encoding_params, optimiser, data_train, true_labels_train)
 
-qc_name = '1q-qvm'
-qc = get_qc(qc_name)
-num_shots = 300
-qubits = qc.qubits()
-init_params = np.random.rand(3)
+        print('The optimised parameters are:', result_unitary_param.x)
+        print('These give a cost of:', ClassificationCircuit(qubits, data_train).build_classifier(result_unitary_param.x, encoding_choice, init_encoding_params, num_shots, qc, true_labels_train))
+        ideal_params =  result_unitary_param.x
+    else:
+        ### Define Ideal parameters for trained model. Simple model can acheieve classification of about 90 %
+        '''
+        # 90% Classification parameters for dense angle encoding
+        '''
+        if data_choice.lower() == 'moons' and encoding_choice== 'denseangle_param': ideal_params= [ 2.19342064 , 1.32972029, -0.18308298]
 
-encoding_choice = 'denseangle_param'
-init_encoding_params = [np.pi, 2*np.pi]
-optimiser = 'Powell' 
-# init_params_encoding_and_unitary = np.random.rand(5) # all parameters to be trained
-# params, result_unitary_param = train_classifier(qc, num_shots, init_params, encoding_choice, init_encoding_params, optimiser, data_moons, true_labels)
+        ### Define Ideal parameters for trained model. Simple model can acheieve classification of about 90 %
+        '''
+        # 75% Classification parameters for superdense angle encoding
+        '''
+        if data_choice.lower() == 'moons' and encoding_choice== 'superdenseangle_param': ideal_params =  [-0.27365492,  0.83278854,  3.00092961]
 
-# print('The optimised parameters are:', result_unitary_param.x)
-# print('These give a cost of:', ClassificationCircuit(qubits, data_moons).build_classifier(result_unitary_param.x, encoding_choice, init_encoding_params, num_shots, qc, true_labels))
-
-### Define Ideal parameters for trained model. Simple model can acheieve classification of about 90 %
-'''
-# 90% Classification parameters
-'''
-# ideal_params_moons = [1.91798163, 0.83910137, 0.00612348]
-ideal_params_moons = [ 2.19342064 , 1.32972029, -0.18308298]
-
-# print('These give a cost of:', ClassificationCircuit(qubits, data_moons).build_classifier(ideal_params_diagonal, encoding_choice, init_encoding_params, num_shots, qc, true_labels))
-# predicted_labels = ClassificationCircuit(qubits, data_moons).make_predictions(ideal_params_diagonal, encoding_choice, init_encoding_params, num_shots, qc)
-# plot_correct_classifications(true_labels, predicted_labels, data_moons)
-# nisqai.visual.scatter(data_moons, true_labels, predicted_labels)
-
-
-### Overlay decision bounday
-'''
-# Generate Grid of datapoints to determine and visualise ideal decision boundary
-'''
-data_choice = 'full_vertical_boundary'
-num_points = 300
-data_grid, grid_true_labels = generate_data(data_choice, num_points)
-
-# # ideal_params = [point_1, point_2, point_3]
-# ideal_params_moons = [1.91798163, 0.83910137, 0.00612348]
-ideal_params_moons = [ 2.19342064,  1.32972029, -0.18308298]
-
-# ideal_encoding_params = [2.23855329, 7.57781576]
-# ideal_params_moons =  result_unitary_param.x[0:3]
-# ideal_encoding_params = result_unitary_param.x[4:5]
-
-predicted_labels = ClassificationCircuit(qubits, data_moons).make_predictions(ideal_params_moons, encoding_choice, init_encoding_params, num_shots, qc)
-scatter(data_moons, predicted_labels)
-
-predicted_labels_grid = ClassificationCircuit(qubits, data_grid).make_predictions(ideal_params_moons, encoding_choice, init_encoding_params, num_shots, qc)
-scatter_red(data_grid, predicted_labels_grid)
-plt.show()
+    print('These give a cost of:', ClassificationCircuit(qubits, data_test).build_classifier(ideal_params, encoding_choice, init_encoding_params, num_shots, qc, true_labels_test))
+    predicted_labels = ClassificationCircuit(qubits, data_test).make_predictions(ideal_params, encoding_choice, init_encoding_params, num_shots, qc)
+    # plot_correct_classifications(true_labels_test, predicted_labels, data_test)
+    nisqai.visual.scatter(data_test, true_labels_test, predicted_labels)
 
 
-## Define noise parameters
-'''
-# Define noise parameters to add to model to determine how classification is affected.
-'''
+    ### Overlay decision bounday
+    '''
+    # Generate Grid of datapoints to determine and visualise ideal decision boundary
+    '''
+    data_choice = 'full_vertical_boundary'
+    num_points = 300
+    data_grid, grid_true_labels = generate_data(data_choice, num_points)
 
-# noise  =None
-# noise_values =None
+    predicted_labels = ClassificationCircuit(qubits, data_test).make_predictions(ideal_params, encoding_choice, init_encoding_params, num_shots, qc)
+    plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
+    scatter(data_test, true_labels_test, predicted_labels, **plot_params)
 
-noise  ='amp_damp_before_measurement'
-noise_values = 0.3
+    predicted_labels_grid = ClassificationCircuit(qubits, data_grid).make_predictions(ideal_params, encoding_choice, init_encoding_params, num_shots, qc)
 
-### Add noise to circuit and classify
-'''
-# Add noise to circuit, and determine number of points classified differently (not mis-classified since we can't achieve perfect classification)
-'''
-noisy_predictions, number_misclassified = generate_noisy_classification(ideal_params_moons, noise, noise_values, encoding_choice, init_encoding_params, qc, num_shots, data_moons, predicted_labels)
-print('The proportion classified differently after noise is:', number_misclassified)
+    plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
 
-## Overlay decision boundary
-'''
-# Generate Grid of datapoints to determine and visualise ideal decision boundary WITH noise added
-'''
+    scatter(data_grid, predicted_labels_grid, **plot_params)
+    plt.show()
 
-# ideal_params_moons = [1.91798163, 0.83910137, 0.00612348] # Same ideal parameters
 
-# predicted_labels = ClassificationCircuit(qubits, data_moons, noise, noise_values).make_predictions(ideal_params_moons, encoding_choice, init_encoding_params, num_shots, qc)
-# scatter(data_moons, predicted_labels)
+    ## Define noise parameters
+    '''
+    # Define noise parameters to add to model to determine how classification is affected.
+    '''
 
-# predicted_labels_grid = ClassificationCircuit(qubits, data_grid, noise, noise_values).make_predictions(ideal_params_moons, encoding_choice, init_encoding_params, num_shots, qc)
-# scatter_red(data_grid, predicted_labels_grid)
-# plt.show()
+    noise_choice  ='amp_damp_before_measurement'
+    noise_values = 0.3
 
-### Retrain circuit with noise
-'''
-# Given the noise in the circuit, train the parameters of encoding unitary to account for noise. Parameterised unitary parameters are fixed as the ideal ones learned.
-'''
+    ### Add noise to circuit and classify
+    '''
+    # Add noise to circuit, and determine number of points classified differently (not mis-classified since we can't achieve perfect classification)
+    '''
+    if noise:
+        noisy_predictions, number_classified_same = generate_noisy_classification(ideal_params, noise_choice, noise_values, encoding_choice, init_encoding_params, qc, num_shots, data_test, predicted_labels)
+        print('The proportion classified differently after noise is:', 1- number_classified_same)
 
-# encoding_params, result_encoding_param = train_classifier_encoding(qc, noise, noise_values, num_shots, ideal_params_moons, encoding_choice, init_encoding_params, optimiser, data_moons, true_labels)
-# print('The optimised encoding parameters are:', result_encoding_param.x)
-# encoding_params = [2.23855329, 7.57781576]
+    ## Overlay decision boundary
+    '''
+    # Generate Grid of datapoints to determine and visualise ideal decision boundary WITH noise added
+    '''
 
-ideal_encoding_params= [3.23177862, 7.21499604]
+    if noise:
+        print(noise_choice)
+        predicted_labels = ClassificationCircuit(qubits, data_test, noise_choice, noise_values).make_predictions(ideal_params, encoding_choice, init_encoding_params, num_shots, qc)
+        plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
+        scatter(data_test, true_labels_test, predicted_labels, **plot_params)
 
-print('These give a cost with the noisy circuit of:',\
-     ClassificationCircuit(qubits, data_moons, noise, noise_values).build_classifier(ideal_params_moons, encoding_choice,ideal_encoding_params , num_shots, qc, true_labels)
-     )
+        predicted_labels_grid = ClassificationCircuit(qubits, data_grid, noise_choice, noise_values).make_predictions(ideal_params, encoding_choice, init_encoding_params, num_shots, qc)
+        plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
+        scatter(data_grid, predicted_labels_grid, **plot_params)
 
-### Add noise to circuit and classify
-'''
-# Using learned encoding parameters, check again proportion misclassified
-'''
-noisy_predictions, number_misclassified = generate_noisy_classification(ideal_params_moons, noise, noise_values, encoding_choice, init_encoding_params, qc, num_shots, data_moons, true_labels)
-print('The proportion classified differently after noise is:', number_misclassified)
+        plt.show()
 
-## Overlay decision boundary
-'''
-# Generate Grid of datapoints to determine and visualise ideal decision boundary WITH noise added
-'''
+    ### Retrain circuit with noise
+    '''
+    # Given the noise in the circuit, train the parameters of encoding unitary to account for noise. Parameterised unitary parameters are fixed as the ideal ones learned.
+    '''
+    if retrain:
+        encoding_params, result_encoding_param = train_classifier_encoding(qc, noise_choice, noise_values, num_shots, ideal_params, encoding_choice, init_encoding_params, optimiser, data_train, true_labels_test)
+        print('The optimised encoding parameters are:', result_encoding_param.x)
+        ideal_encoding_params = result_encoding_param.x
+    else:
+        ### Define Ideal ENCODING parameters for trained model. Simple model can acheieve classification of about 90 %
+        '''
+        # 90% Classification parameters for dense angle encoding
+        '''
+        if data_choice.lower() == 'moons' and encoding_choice.lower() == 'denseangle_param' and noise:  
+            ideal_encoding_params = [3.23177862, 7.21499604]
+        else: ideal_encoding_params = [3.23177862, 7.21499604] 
 
-# ideal_params_moons = [1.91798163, 0.83910137, 0.00612348] # Same ideal parameters
-ideal_params_moons = [ 2.19342064,  1.32972029, -0.18308298]
+        ### Define Ideal ENCODING parameters for trained model. Simple model can acheieve classification of about 90 %
+        '''
+        # 75% Classification parameters for superdense angle encoding
+        '''
+        if data_choice.lower() == 'moons' and encoding_choice.lower() == 'superdenseangle_param' and noise: 
+            ideal_encoding_params =  [2.16034789, 5.54718858]
+        else: ideal_encoding_params = [3.23177862, 7.21499604] # No noise
 
-# ideal_encoding_params = [2.23855329, 7.57781576]
-ideal_encoding_params= [3.23177862, 7.21499604]
+    if noise:
+        print('These give a cost with the noisy circuit of:',\
+            ClassificationCircuit(qubits, data_test, noise_choice, noise_values).build_classifier(ideal_params, encoding_choice, ideal_encoding_params , num_shots, qc, true_labels_test) )
+    else:       
+        print('These give a cost with the noisy circuit of:',\
+            ClassificationCircuit(qubits, data_test).build_classifier(ideal_params, encoding_choice, ideal_encoding_params , num_shots, qc, true_labels_test) )
 
-predicted_labels = ClassificationCircuit(qubits, data_moons, noise, noise_values).make_predictions(ideal_params_moons, encoding_choice, ideal_encoding_params, num_shots, qc)
-scatter(data_moons, predicted_labels)
+    ### Add noise to circuit and classify
+    '''
+    # Using learned encoding parameters, check again proportion misclassified
+    '''
+    if noise:
+        noisy_predictions, number_classified_same = generate_noisy_classification(ideal_params, noise_choice, noise_values, encoding_choice, init_encoding_params, qc, num_shots, data_test, true_labels_test)
+        print('The proportion classified differently after noise with learned encoding is:', 1- number_classified_same)
 
-predicted_labels_grid = ClassificationCircuit(qubits, data_grid, noise, noise_values).make_predictions(ideal_params_moons, encoding_choice, ideal_encoding_params, num_shots, qc)
-scatter_red(data_grid, predicted_labels_grid)
-plt.show()
+    ## Overlay decision boundary
+    '''
+    # Generate Grid of datapoints to determine and visualise ideal decision boundary WITH/WITHOUT noise added
+    '''
+    if noise:
+        predicted_labels = ClassificationCircuit(qubits, data_test, noise_choice, noise_values).make_predictions(ideal_params, encoding_choice, ideal_encoding_params, num_shots, qc)
 
-# ClassificationCircuit(qubits, data).build_classifier(result.x, encoding_choice, encoding_params,num_shots, qc, true_labels)
-# predicted_labels = ClassificationCircuit(qubits, data).make_predictions(ideal_params, encoding_choice, encoding_params, num_shots, qc, true_labels)
-# print(true_labels, predicted_labels)
+        plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
+        scatter(data_test,  true_labels_test, predicted_labels, **plot_params)
 
-# plot_correct_classifications(true_labels, predicted_labels, data)
+        predicted_labels_grid = ClassificationCircuit(qubits, data_grid, noise_choice, noise_values).make_predictions(ideal_params, encoding_choice, ideal_encoding_params, num_shots, qc)
+        
+        plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
+        scatter(data_grid, predicted_labels_grid, **plot_params)
+        plt.show()
+    else:
+        predicted_labels = ClassificationCircuit(qubits, data_test).make_predictions(ideal_params, encoding_choice, ideal_encoding_params, num_shots, qc)
+        
+        plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
+        scatter(data_test, true_labels_test,  predicted_labels, **plot_params)
 
-# noise_values = [T1, T2, gate_time_1q, gate_time_2q, ro_fidelity]
-# noise  ='measurement'
-# noise_values = [0.95, 0.95]
+        predicted_labels_grid = ClassificationCircuit(qubits, data_grid, noise_choice, noise_values).make_predictions(ideal_params, encoding_choice, ideal_encoding_params, num_shots, qc)
+        
+        plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
+        scatter(data_grid, predicted_labels_grid, **plot_params)
+        plt.show()
 
-# noisy_predictions, number_misclassified = generate_noisy_classification(ideal_params, noise, noise_values, encoding_choice, encoding_params, qc, num_shots, data, true_labels)
-# plot_correct_classifications(true_labels, noisy_predictions, data)
-# print(noisy_predictions, true_labels)
-# print(noisy_predictions, number_misclassified)
-# ideal_wf = make_wf.wavefunction(ideal_circuit_circ.circuit)
-# print('Ideal WF is:', ideal_wf)
-# ideal_predictions = circ._make_predictions(num_shots, qc)
-# print(ideal_predictions, 'TRUE:\n',true_labels)
-# plot_correct_classifications(true_labels, ideal_predictions, data)
 
+if __name__ == "__main__":
+    main(train=False, encoding_choice='superdenseangle_param', retrain=False, data_choice='moons', ideal=False, noise=True)
 
 '''
 # IDEAL PARAMETERS FOR DATASETS

@@ -2,6 +2,7 @@ from nisqai.data._cdata import CData, LabeledCData
 import numpy as np
 from nisqai.visual import scatter
 
+from sklearn.datasets import make_moons
 def grid_pts(nx=12, ny=12):
     """
     Generates a grid of points given by specified number of x and y points
@@ -94,7 +95,7 @@ def random_data_diagonal_boundary(num_samples, seed=None):
     return LabeledCData(data, labels)
 
 ### Generate data set of choice:
-def generate_data(data_choice, num_points, random_seed=None, split=False, split_ratio=0.8):
+def generate_data(data_choice, num_points, random_seed=None, split=False, split_ratio=0.8, noise=0.05):
     """
     Generates a dataset with corresponding labels
         Can generate:
@@ -116,20 +117,34 @@ def generate_data(data_choice, num_points, random_seed=None, split=False, split_
 
     """
     if split:
-        num_train_points = num_points * split_ratio
-        num_test_points = num_points * (1-split_ratio)
+        num_train_points = int(num_points * split_ratio)
+        num_test_points = int( num_points * (1-split_ratio) )
         if data_choice.lower() == 'random_vertical_boundary':
             cdata_train = random_data_vertical_boundary(num_train_points, seed=random_seed)
             cdata_test = random_data_vertical_boundary(num_test_points, seed=random_seed)
+            train_data = cdata_train.data
+            train_true_labels = cdata_train.labels
+            test_data = cdata_test.data
+            test_true_labels = cdata_test.labels
+
         elif data_choice.lower() == 'random_diagonal_boundary':
             cdata_train = random_data_diagonal_boundary(num_train_points, seed=random_seed)
             cdata_test = random_data_diagonal_boundary(num_test_points, seed=random_seed)
 
-        train_data = cdata_train.data
-        train_true_labels = cdata_train.labels
-        test_data = cdata_train.data
-        test_true_labels = cdata_test.labels
+            train_data = cdata_train.data
+            train_true_labels = cdata_train.labels
+            test_data = cdata_test.data
+            test_true_labels = cdata_test.labels
 
+        elif data_choice.lower() == 'moons':
+            unscaled_data_train, train_true_labels = make_moons(n_samples=num_train_points, noise=noise)
+            unscaled_data_test, test_true_labels   = make_moons(n_samples=num_test_points, noise=noise)
+
+            train_data = scale_data(unscaled_data_train)[:,[1, 0]] # Scale data to unit square and flip 90 degrees
+            test_data = scale_data(unscaled_data_test)[:,[1, 0]]
+             
+
+       
         return train_data, test_data, train_true_labels, test_true_labels
     else:
         if data_choice.lower() == 'random_vertical_boundary':
@@ -148,3 +163,20 @@ def generate_data(data_choice, num_points, random_seed=None, split=False, split_
             data, true_labels = full_data_diagonal_boundary(int(np.sqrt(num_points)), int(np.sqrt(num_points)))
     
         return data, true_labels
+
+def remove_zeros(data, labels):
+    new_data = []
+    new_labels = []
+    for ii, data_point in enumerate(data):
+        if (data_point[0] != 0 or data_point[0] != 0.)  and (data_point[1] != 0 or data_point[1] != 0.):
+            new_data.append(data_point)
+            new_labels.append(labels[ii])
+    return np.array(new_data), np.array(new_labels)
+
+def scale_data(unscaled_data):
+    scaled_data = np.zeros_like(unscaled_data)
+
+    for ii, point in enumerate(unscaled_data):
+        scaled_data[ii] = np.array([point[0]/3+1/3, 2*point[1]/3 + 1/3])
+
+    return scaled_data

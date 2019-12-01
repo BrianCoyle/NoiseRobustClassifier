@@ -5,10 +5,13 @@ import nisqai
 from pyquil import get_qc, Program
 from pyquil.api import WavefunctionSimulator
 from _dense_angle_encoding import DenseAngleEncoding
+from _wavefunction_encoding import WaveFunctionEncoding
+from _superdense_angle_encoding import SuperDenseAngleEncoding
+
 from nisqai.encode import WaveFunctionEncoding
 from nisqai.encode._feature_maps import FeatureMap
-from nisqai.encode._encoders import angle_simple_linear
-from _encoders import angle_param_linear
+# from nisqai.encode._encoders import angle_simple_linear
+from _encoders import angle_param_linear, angle_param_combination
 from nisqai.layer._base_ansatz import BaseAnsatz
 from nisqai.layer._params import Parameters
 from nisqai.data._cdata import CData, LabeledCData
@@ -64,8 +67,9 @@ def compute_label(results):
 
     num_zeros = new_result.count([0])
     num_ones = new_result.count([1])
-    if num_zeros >= num_ones: return 0
-    elif num_zeros < num_ones: return 1
+    zero_close = num_ones - num_zeros
+    if num_zeros >= num_ones: return 0, zero_close
+    elif num_zeros < num_ones: return 1, zero_close
 
 class ClassificationCircuit(BaseAnsatz):
     """Class for working with classifier circuit."""
@@ -94,14 +98,18 @@ class ClassificationCircuit(BaseAnsatz):
     def _encoding(self, encoding_choice, encoding_params=None):
         """Encodes feature vectors in circuits"""
         self.feature_map = FeatureMap({self.qubits[0]: [0, 1]})
+        self.encoding_params = encoding_params
         if encoding_choice.lower() == 'denseangle':
-            self.circuits = DenseAngleEncoding(self.data, angle_param_linear, encoding_params, self.feature_map).circuits
+            self.circuits = DenseAngleEncoding(self.data, angle_param_linear, self.encoding_params, self.feature_map).circuits
 
         elif encoding_choice.lower() == 'denseangle_param':
-            self.circuits = DenseAngleEncoding(self.data, angle_param_linear, encoding_params, self.feature_map).circuits
+            self.circuits = DenseAngleEncoding(self.data, angle_param_linear, self.encoding_params, self.feature_map).circuits
+
+        elif encoding_choice.lower() == 'superdenseangle_param':
+            self.circuits = SuperDenseAngleEncoding(self.data, angle_param_combination, self.encoding_params, self.feature_map).circuits
 
         elif encoding_choice.lower() == 'wavefunction':
-            pass
+            self.circuits = WaveFunctionEncoding(self.data).circuits
         return self
 
     def _add_class_circuits(self):
@@ -138,8 +146,11 @@ class ClassificationCircuit(BaseAnsatz):
                 native_gates = qc.compiler.quil_to_native_quil(enc_circuit.circuit)
                 executable = qc.compile(native_gates, to_native_gates=False, optimize=False)
             results = qc.run(enc_circuit.circuit)
+            label, closeness = compute_label(results) 
+    
 
-            labels.append( compute_label(results) )
+            labels.append(label)
+
         self.predicted_labels = np.array(labels)
         return self.predicted_labels
     
@@ -171,8 +182,8 @@ class ClassificationCircuit(BaseAnsatz):
         self._add_class_circuits()
         predicted_labels = self._predict(num_shots, qc)
         cost = self._compute_cost(true_labels) / len(true_labels)
-        print('True labels are: ', true_labels)
-        print('Predicted labels are:', predicted_labels)
+        # print('True labels are: ', true_labels)
+        # print('Predicted labels are:', predicted_labels)
         print('The cost is:', cost)
       
         return cost
@@ -184,15 +195,17 @@ def build_classifier_encoding(encoding_params, encoding_choice, param_values, no
     """
     Same functionality as build_classifier, except encoding params are passed as the argument to the optimiser
     """
+    qubits = qc.qubits()
     circ = ClassificationCircuit(qubits, data, noise, noise_params)
     circ.params = classifier_params(qubits, param_values)
 
     circ._encoding(encoding_choice, encoding_params)
+    print('Encoding parameters are: ', circ.encoding_params)
     circ._add_class_circuits()
     predicted_labels = circ._predict(num_shots, qc)
     cost = circ._compute_cost(true_labels) / len(true_labels)
-    print('True labels are: ', true_labels)
-    print('Predicted labels are:', predicted_labels)
+    # print('True labels are: ', true_labels)
+    # print('Predicted labels are:', predicted_labels)
     print('The cost is:', cost)
     
     return cost
@@ -234,14 +247,14 @@ def train_classifier_encoding(qc, noise, noise_params, num_shots, init_params, e
 def compute_number_misclassified(true_labels, noisy_predictions):
     return abs((true_labels-noisy_predictions)).sum()/len(true_labels)
 
-def generate_noisy_classification(ideal_params, noise_type, noise_params, encoding, encoding_params, qc, num_shots, data, true_labels):
+def generate_noisy_classification(ideal_params, noise_type, noise_params, encoding_choice, encoding_params, qc, num_shots, data, true_labels):
 
     number_points = len(true_labels)
-
+    qubits = qc.qubits()
     circ =  ClassificationCircuit(qubits, data, noise=noise_type, noise_params=noise_params)
   
     noisy_predictions = circ.make_predictions(ideal_params, encoding_choice, encoding_params, num_shots, qc)
 
-    number_misclassified = compute_number_misclassified(true_labels, noisy_predictions)
+    number_correctly_classified = 1 - compute_number_misclassified(true_labels, noisy_predictions)
 
-    return noisy_predictions, number_misclassified
+    return noisy_predictions, number_correctly_classified
