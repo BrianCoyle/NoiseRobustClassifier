@@ -3,6 +3,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from matplotlib import cm
 
+plt.rcParams.update({"font.size": 12, "font.serif": "Computer Modern Roman"})
+
 
 import numpy as np
 from numpy import ndarray
@@ -93,37 +95,83 @@ def plot_number_misclassified_singleparam_noise_stren(ideal_params, encoding_cho
     fig, axs = plt.subplots(1)
 
     axs.plot(points_to_plot_array[:, 0], points_to_plot_array[:, 1]) 
-
     plt.show()
 
     return
 
-def plot_number_misclassified_meas_noise_3d(ideal_params, num_shots, encoding_choice, encoding_params, num_points, qc):
+def plot_number_misclassified_meas_noise_3d(ideal_params, num_shots, encoding_choice, encoding_params, qc):
 
     points_noise_inc = []
     
-    data, true_labels = generate_random_data_labels(num_points, num_points)
-    noise_strengths00 = np.arange(0, 1, 0.02)
-    noise_strengths11 = np.arange(0, 1, 0.02)
+    data_train, data_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points=500, split=True)
+
+    noise_strengths00 = np.arange(0, 1, 0.05)
+    noise_strengths11 = np.arange(0, 1, 0.05)
     X, Y = np.meshgrid(noise_strengths00, noise_strengths11)
 
     noise_type = "Measurement"
-    proportion_misclassified = np.zeros((noise_strengths00.shape[0], noise_strengths11.shape[0]), dtype=float)
+    proportion_correctly_classified = np.zeros((noise_strengths00.shape[0], noise_strengths11.shape[0]), dtype=float)
     for ii, p00 in enumerate(noise_strengths00):
         for jj, p11 in enumerate(noise_strengths11):
             p = [p00, p11] # measurement noise for both outcomes
-            noisy_predictions, proportion_misclassified[ii,jj]  = generate_noisy_classification(ideal_params, noise_type, p, encoding_choice, encoding_params, qc, num_shots, data, true_labels)
-            print(proportion_misclassified)
+            noisy_predictions, proportion_correctly_classified[ii,jj]  = generate_noisy_classification(ideal_params, noise_type, p, encoding_choice, encoding_params, qc, num_shots, data_test, true_labels_test)
+            print('For parameters: ', p00, p11, ', the proportion misclassified is:', 1 - proportion_correctly_classified[ii,jj])
+
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
 
-    surf = ax.plot_surface(X, Y, proportion_misclassified, cmap=cm.coolwarm,
+    surf = ax.plot_surface(X, Y, 100*(1 - proportion_correctly_classified), cmap=cm.winter_r,
                        linewidth=0, antialiased=False)
 
-    ax.set_zlim(-0.01, 1.01)
+    ax.set_zlim(-0.01, 100.01)
+  
+
+    ax.set_xlabel(r'$p_{00}$')
+    ax.set_ylabel(r'$p_{11}$')
+    ax.set_zlabel('% Misclassified')
+
     fig.colorbar(surf)
+    plt.savefig('meas_noise.pdf')
     plt.show()
+
+    return
+
+def plot_number_misclassified_pauli_noise_3d(ideal_params, num_shots, encoding_choice, encoding_params, qc):
+    
+    points_noise_inc = []
+    
+    data_train, data_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points=500, split=True)
+
+    noise_strengthsX = np.arange(0, 0.5, 0.05)
+    noise_strengthsY = np.arange(0, 0.5, 0.05)
+    X, Y = np.meshgrid(noise_strengthsX, noise_strengthsY)
+
+    noise_type = "pauli_before_measurement"
+    proportion_correctly_classified = np.zeros((noise_strengthsX.shape[0], noise_strengthsY.shape[0]), dtype=float)
+    for ii, pX in enumerate(noise_strengthsX):
+        for jj, pY in enumerate(noise_strengthsY):
+            p = [1-pX-pY, pX, pY, 0] # pauli X and Y noise
+            noisy_predictions, proportion_correctly_classified[ii,jj]  = generate_noisy_classification(ideal_params, noise_type, p, encoding_choice, encoding_params, qc, num_shots,  data_test, true_labels_test)
+            print('For parameters: ', pX, pY, ', the proportion misclassified is:', 100*(1 - proportion_correctly_classified[ii,jj]))
+
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    surf = ax.plot_surface(X, Y, 100*(1-proportion_correctly_classified), cmap=cm.winter_r,
+                       linewidth=0, antialiased=False)
+
+    ax.set_zlim(-0.01, 100.01)
+
+    ax.set_xlabel(r'$p_{X}$')
+    ax.set_ylabel(r'$p_{Y}$')
+    ax.set_zlabel('% Misclassified')
+    
+    plt.savefig('pauli_noise.pdf')
+
+    fig.colorbar(surf)
+    # plt.show()
 
     return
 
@@ -223,3 +271,63 @@ def scatter(data, labels=None, predictions=None, show=False, **kwargs):
     
     if show: plt.show()
     
+def plot_encoding_algo(datasets, encodings, ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs):
+
+    fig, ax = plt.subplots(1, len(datasets), sharex=True)
+    x = np.arange(len(encodings))
+
+    encoding_labels = ['Dense Angle', 'SuperDense Angle', 'Wavefunction']
+    legend_labels = ['Ideal', 'Untrained Encoding + Noise', 'Trained Encoding + Noise']
+
+    for ii, data in enumerate(datasets):
+        ax[ii].scatter(x, ideal_costs[ii],              marker='x', linewidth=2, s=100, alpha=1)
+        ax[ii].scatter(x, noisy_costs_uncorrected[ii],  marker='o',linewidth=2, s=100, alpha=1)
+        ax[ii].scatter(x, noisy_costs[ii],              marker='^',linewidth=2, s=100, alpha=1)
+        ax[ii].set_title(data)
+        
+        ax[ii].set_xticks(x)
+        ax[ii].set_xticklabels(encoding_labels,  rotation='30')
+
+        # Round parameters for plotting -> Produces str
+       
+        ideal_params_rounded = [ ['%.2f' % param for param in encoding] for encoding in ideal_params[ii] ]
+        init_encoding_params_rounded = [ ['%.2f' % param for param in encoding] for encoding in init_encoding_params[ii] ]
+        ideal_encoding_params_rounded = [ ['%.2f' % param for param in encoding] for encoding in ideal_encoding_params[ii] ]
+        
+        for i, params in enumerate(init_encoding_params_rounded):
+            if i == len(init_encoding_params_rounded) - 1:  
+                ax[ii].annotate(params, (x[i], ideal_costs[ii][i]), textcoords="offset points", xytext=(-10,0), ha='right')
+                ax[ii].annotate(params, (x[i], noisy_costs_uncorrected[ii][i]), textcoords="offset points", xytext=(-10, 0), ha='right')
+            else:
+                ax[ii].annotate(params, (x[i], ideal_costs[ii][i]), textcoords="offset points", xytext=(10,0), ha='left')
+                ax[ii].annotate(params, (x[i], noisy_costs_uncorrected[ii][i]), textcoords="offset points", xytext=(10, 0), ha='left')
+
+        for i, params in enumerate(ideal_encoding_params_rounded):
+            if i == len(ideal_encoding_params_rounded)-1:
+                ax[ii].annotate(params, (x[i], noisy_costs[ii][i]), textcoords="offset points", xytext=(-10, 0), ha='right')
+            else:
+                ax[ii].annotate(params, (x[i], noisy_costs[ii][i]), textcoords="offset points", xytext=(10, 0), ha='left')
+
+    ax[0].set_ylabel('Cost')
+    ax[-1].legend(legend_labels)
+    plt.show()
+    return
+
+if __name__ == "__main__":
+
+    """
+    Generate Pauli and Measurement Noise Plots
+    """
+    ideal_params = [1.67814786, 1.56516469, 1.77820848]
+    encoding_choice = 'denseangle_param'
+    encoding_params = [np.pi, 2*np.pi]
+
+    qc_name = '1q-qvm'
+    qc = get_qc(qc_name)
+    num_shots = 512
+    # plot_number_misclassified_pauli_noise_3d(ideal_params, num_shots, encoding_choice, encoding_params, qc)
+
+    plot_number_misclassified_meas_noise_3d(ideal_params, num_shots, encoding_choice, encoding_params, qc)
+
+
+# plot_encoding_algo(datasets, encodings, ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs)

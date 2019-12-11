@@ -184,7 +184,7 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
         points_noise_inc = []
 
         data_vertical_train, data_vertical_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points = num_points, split=True)
-        interval = 0.05
+        interval = 0.1
         encoding_choice = 'denseangle_param'
         theta = np.arange(0, 2*np.pi, interval)
         phi = np.arange(0, 2*np.pi, interval)

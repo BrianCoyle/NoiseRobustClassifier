@@ -7,7 +7,7 @@ from pyquil.api import WavefunctionSimulator
 from _dense_angle_encoding import DenseAngleEncoding
 from _wavefunction_encoding import WaveFunctionEncoding
 from _superdense_angle_encoding import SuperDenseAngleEncoding
-
+from _generalised_wavefunction_encoding import GeneralisedWaveFunctionEncoding
 from nisqai.encode import WaveFunctionEncoding
 from nisqai.encode._feature_maps import FeatureMap
 # from nisqai.encode._encoders import angle_simple_linear
@@ -67,9 +67,8 @@ def compute_label(results):
 
     num_zeros = new_result.count([0])
     num_ones = new_result.count([1])
-    zero_close = num_ones - num_zeros
-    if num_zeros >= num_ones: return 0, zero_close
-    elif num_zeros < num_ones: return 1, zero_close
+    if num_zeros >= num_ones: return 0
+    elif num_zeros < num_ones: return 1
 
 class ClassificationCircuit(BaseAnsatz):
     """Class for working with classifier circuit."""
@@ -99,6 +98,7 @@ class ClassificationCircuit(BaseAnsatz):
         """Encodes feature vectors in circuits"""
         self.feature_map = FeatureMap({self.qubits[0]: [0, 1]})
         self.encoding_params = encoding_params
+
         if encoding_choice.lower() == 'denseangle':
             self.circuits = DenseAngleEncoding(self.data, angle_param_linear, self.encoding_params, self.feature_map).circuits
 
@@ -110,6 +110,11 @@ class ClassificationCircuit(BaseAnsatz):
 
         elif encoding_choice.lower() == 'wavefunction':
             self.circuits = WaveFunctionEncoding(self.data).circuits
+
+        elif encoding_choice.lower() == 'wavefunction_param':
+            self.circuits = GeneralisedWaveFunctionEncoding(self.data, self.encoding_params).circuits
+
+
         return self
 
     def _add_class_circuits(self):
@@ -143,10 +148,12 @@ class ClassificationCircuit(BaseAnsatz):
                 native_gates = qc.compiler.quil_to_native_quil(enc_circuit.circuit)
                 executable = NoisyCircuits(native_gates, self.params, self.qubits, self.noise_params).decoherence_noise_model() 
             else:  
+    
                 native_gates = qc.compiler.quil_to_native_quil(enc_circuit.circuit)
                 executable = qc.compile(native_gates, to_native_gates=False, optimize=False)
+               
             results = qc.run(enc_circuit.circuit)
-            label, closeness = compute_label(results) 
+            label = compute_label(results) 
     
 
             labels.append(label)
@@ -200,12 +207,12 @@ def build_classifier_encoding(encoding_params, encoding_choice, param_values, no
     circ.params = classifier_params(qubits, param_values)
 
     circ._encoding(encoding_choice, encoding_params)
-    print('Encoding parameters are: ', circ.encoding_params)
+
     circ._add_class_circuits()
     predicted_labels = circ._predict(num_shots, qc)
     cost = circ._compute_cost(true_labels) / len(true_labels)
-    # print('True labels are: ', true_labels)
-    # print('Predicted labels are:', predicted_labels)
+
+
     print('The cost is:', cost)
     
     return cost
@@ -220,7 +227,7 @@ def train_classifier(qc, num_shots, init_params, encoding_choice, encoding_param
 
     def store(current_params):
         params.append(list(current_params))
-
+    print(optimiser)
     result = minimize(ClassificationCircuit(qubits, data).build_classifier, init_params,    method=optimiser,\
                                                                                             callback=store,\
                                                                                             args=(encoding_choice, encoding_params, num_shots, qc, true_labels))
@@ -237,10 +244,18 @@ def train_classifier_encoding(qc, noise, noise_params, num_shots, init_params, e
 
     def store(current_params):
         encoding_params.append(list(current_params))
+    if encoding_choice.lower() == 'wavefunction_param':
+        bounds = ((0.0, 0.999),) # Don't allow parameter to reach 1 in generalized wavefunction encoding
+        result = minimize(build_classifier_encoding, encoding_params,   method=optimiser,\
+                                                                        callback=store,\
+                                                                        bounds=bounds,\
+                                                                        args=(encoding_choice, init_params, noise, noise_params, num_shots, qc, data, true_labels),\
+                                                                        options={'eps':0.01})
+    else:
+        result = minimize(build_classifier_encoding, encoding_params,   method=optimiser,\
+                                                                        callback=store,\
+                                                                        args=(encoding_choice, init_params, noise, noise_params, num_shots, qc, data, true_labels))                                     
 
-    result = minimize(build_classifier_encoding, encoding_params,   method=optimiser,\
-                                                                    callback=store,\
-                                                                    args=(encoding_choice, init_params, noise, noise_params, num_shots, qc, data, true_labels))
     return encoding_params, result
 
 

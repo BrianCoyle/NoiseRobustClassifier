@@ -45,7 +45,7 @@ class NoisyCircuits():
         """
         p_dephase = self.noise_params 
         self._ideal_circuit()
-        self.circuit += I(qubits[0])
+        self.circuit += I(self.qubits[0])
         noisy_i = dephased_i_gate(p_dephase)
 
         self.circuit = add_noisy_gate_to_circ(self.circuit, noisy_i, [self.qubits[0]], 'iden')
@@ -61,8 +61,8 @@ class NoisyCircuits():
         
         self._ideal_circuit()
 
-        self.circuit += I(qubits[0])
-        noisy_iden = pauli_noise_i_gate(p)
+        self.circuit += I(self.qubits[0])
+        noisy_iden = pauli_noise_i_gate(p_I, p_x, p_y, p_z)
 
         self.circuit = add_noisy_gate_to_circ(self.circuit, noisy_iden, [self.qubits[0]], 'iden')
 

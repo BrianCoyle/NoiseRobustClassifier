@@ -139,7 +139,7 @@ def generate_data(data_choice, num_points, random_seed=None, split=False, split_
         elif data_choice.lower() == 'moons':
             unscaled_data_train, train_true_labels = make_moons(n_samples=num_train_points, noise=noise)
             unscaled_data_test, test_true_labels   = make_moons(n_samples=num_test_points, noise=noise)
-
+            
             train_data = scale_data(unscaled_data_train)[:,[1, 0]] # Scale data to unit square and flip 90 degrees
             test_data = scale_data(unscaled_data_test)[:,[1, 0]]
              
