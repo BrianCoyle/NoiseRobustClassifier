@@ -3,6 +3,10 @@ import numpy as np
 from nisqai.visual import scatter
 
 from sklearn.datasets import make_moons
+from sklearn.datasets import load_iris
+from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
+
 def grid_pts(nx=12, ny=12):
     """
     Generates a grid of points given by specified number of x and y points
@@ -143,8 +147,22 @@ def generate_data(data_choice, num_points, random_seed=None, split=False, split_
             train_data = scale_data(unscaled_data_train)[:,[1, 0]] # Scale data to unit square and flip 90 degrees
             test_data = scale_data(unscaled_data_test)[:,[1, 0]]
              
+        elif data_choice.lower() == 'iris':
+            # 4 dimensional data set. 4 features can be encoded in two qubits.
+            iris_data = load_iris()
 
-       
+            data, labels = [], []
+
+            for ii, label in enumerate(iris_data['target']):
+                if label == 1 or label == 2: #Only take classes 1 or 2
+                    data.append(iris_data['data'][ii])
+                    labels.append(iris_data['target'][ii])
+
+            data = np.array(data)
+            labels = np.array(labels)
+
+            train_data, test_data, train_true_labels, test_true_labels = train_test_split(data, labels, test_size=1-split_ratio)
+
         return train_data, test_data, train_true_labels, test_true_labels
     else:
         if data_choice.lower() == 'random_vertical_boundary':

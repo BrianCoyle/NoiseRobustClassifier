@@ -19,6 +19,8 @@ from pyquil import Program
 
 # Changes from original:
 # Extra argument in encoder
+
+
 class DenseAngleEncoding:
     """DenseAngleEncoding class. Encode features into the angles of qubits via
 

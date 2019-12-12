@@ -25,16 +25,34 @@ class NoisyCircuits():
 
         
 
-    def _ideal_circuit(self):
+    def _ideal_circuit(self, n_layers=1):
         """
         Writes the ideal classification ansatz circuit.
         For now, just general single qubit unitary decomposed into RxRzRx
         with three parameters
         """
-        
-        self.circuit += RZ(2*self.params.values[0][0], self.qubits[0])
-        self.circuit += RY(2*self.params.values[0][1], self.qubits[0])
-        self.circuit += RZ(2*self.params.values[0][2], self.qubits[0])
+        if len(self.qubits) == 1:
+
+            self.circuit += RZ(2*self.params.values[0][0], self.qubits[0])
+            self.circuit += RY(2*self.params.values[0][1], self.qubits[0])
+            self.circuit += RZ(2*self.params.values[0][2], self.qubits[0])
+
+        elif len(self.qubits) == 2:
+            if n_layers == 1:
+                    for ii, qubit in enumerate(self.qubits):
+                        self.circuit += RZ(2*self.params.values[ii][0], qubit)
+                        self.circuit += RY(2*self.params.values[ii][1], qubit)
+                        self.circuit += RZ(2*self.params.values[ii][2], qubit)
+                    self.circuit += CZ(self.qubits[0], self.qubits[1])
+            
+            else:
+                for layer in range(n_layers):  
+                    # parameters should be an array of size n_qubits x n_layers x 3
+                    for ii, qubit in enumerate(self.qubits):
+                        self.circuit += RZ(2*self.params.values[ii][layer][0], qubit)
+                        self.circuit += RY(2*self.params.values[ii][layer][1], qubit)
+                        self.circuit += RZ(2*self.params.values[ii][layer][2], qubit)
+                    self.circuit += CZ(self.qubits[0], self.qubits[1]) # Unparameterized entanglement gate
 
         return self.circuit  
 

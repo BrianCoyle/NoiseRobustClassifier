@@ -43,7 +43,7 @@ def classifier_params(qubits, values):
             Initial parameter value that appears in all gates.
     """
 
-    params = {qubits[0]: [value for value in values]}  
+    params = {qubits[ii]: [value for value in values[ii]] for ii in qubits}  
     print(params)
     return Parameters(params)
 
@@ -195,7 +195,18 @@ class ClassificationCircuit(BaseAnsatz):
       
         return cost
 
+# data_train, data_test, true_labels_train, true_labels_test = generate_data('iris', num_points=500, split=True)
+# print(data_train)
+# qc_name  = '2q-qvm'
+# qc =get_qc(qc_name)
+# circ = ClassificationCircuit(qc.qubits(), data_train)
 
+# init_params = np.random.rand(2, 3)
+# print(init_params)
+
+# init_encoding_params = [np.pi, 2*np.pi]
+
+# circ.build_classifier(init_params, 'denseangle_param', init_encoding_params, 100, qc, true_labels_train)
 
 
 def build_classifier_encoding(encoding_params, encoding_choice, param_values, noise, noise_params, num_shots, qc, data, true_labels):

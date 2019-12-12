@@ -49,6 +49,24 @@ class RigettiDevice:
             for qubit in self.qubits:
                 np.savetxt('%s/%s' %(file_name, qubit), device.meas_noise[qubit])
 
+    def compute_avg_meas_probs(self, n_runs):
+        """
+        Get measurement probabilities from file and compute average
+        """
+        meas_probs_per_qubit_per_run = np.zeros((n_runs, len(self.qubits), 2))
+
+        for run in range(n_runs):
+            file_name = '%s/Run%i' % (self.qc_name, run)
+
+            for ii, qubit in enumerate(self.qubits):
+
+                meas_probs_per_qubit_per_run[run][ii] = np.loadtxt('%s/%s' %(file_name, qubit))
+                
+        average_probs = np.mean(meas_probs_per_qubit_per_run, axis=0)
+
+        return average_probs
+
+
     def _estimate_meas_probs(self, q, trials, p0=None):
         """
         Estimate the readout assignment probabilities for a given qubit ``q``.
@@ -84,48 +102,14 @@ class RigettiDevice:
                         [1 - p00, p11]])
 
 
-n_runs = 10
-chip_name = "Aspen-4-2Q-A"
-device = RigettiDevice(chip_name, simulated=False)
+n_runs = 5
+chip_name = "2q-qvm"
+device = RigettiDevice(chip_name, simulated=True)
 # device.characterise_chip_measurement(1024)
-device.meas_probs_to_file(1024, n_runs)
+device.compute_avg_meas_probs(n_runs)
+
 # print(device.chip_noise)
 
-
-#     def estimate_meas_noise(self, num_shots, noisy_device=True, meas_probs=np.eye(2), noisy_programs=[]):
-#         """
-#         This function computes the measurement noise probabilities for 
-#         a given device.
-#         Args:
-#             qc : QuantumComputer
-#                 Quantum Computer object to characterise
-#             num_shots : Union[int, list:int]
-#             noisy_device : bool
-#                 True/False value indicating qc is already noisy
-#             meas_probs : np.array
-#                 if noisy_device==False (i.e. qvm), add measurement noisy to qc according to 
-#                 parameters 
-#             noisy_programs : list
-#                 if noisy_device==False (i.e. qvm), specify programs with noise added
-
-#         Returns:
-#             probs : np.ndarray of the measurment probabilities
-#         """
-#         qubits = qc.qubits()
-#         meas_probs = np.zeros((len(qubits), 2, 2))
-
-#         if noisy_device == True:
-#             for ii, qubit in enumerate(qubits):
-#                 meas_probs[ii] = estimate_assignment_probs(qubit, num_shots, qc, Program())
-
-#         elif noisy_device == False:
-
-#             assert len(noisy_programs) == len(qubits) # Must specify measurement noise on all qubits
-
-#             for ii, qubit in enumerate(qubits):
-#                 meas_probs[ii] = estimate_assignment_probs(qubit, num_shots, qc, noisy_programs[ii])
-
-#         return meas_probs
 
 
 # """
@@ -282,38 +266,6 @@ device.meas_probs_to_file(1024, n_runs)
 #         :return: A list of transformed Kraus operators.
 #         """
 #         return [kj.dot(gate_matrix) for kj in kraus_ops]
-
-
-#     def pauli_kraus_map(probabilities):
-
-#         if len(probabilities) not in [4, 16]:
-#             raise ValueError("Currently we only support one or two qubits, "
-#                             "so the provided list of probabilities must have length 4 or 16.")
-#         if not np.allclose(sum(probabilities), 1.0, atol=1e-3):
-#             raise ValueError("Probabilities must sum to one.")
-
-#         paulis = [np.eye(2), np.array([[0, 1], [1, 0]]), np.array([[0, -1j], [1j, 0]]), np.array([[1, 0], [0, -1]])]
-
-#         if len(probabilities) == 4:
-#             operators = paulis
-#         else:
-#             operators = np.kron(paulis, paulis)
-
-#         return [coeff * op for coeff, op in zip(np.sqrt(probabilities), operators)]
-
-
-#     def damping_kraus_map(p=0.10):
-
-#         damping_op = np.sqrt(p) * np.array([[0, 1],
-#                                             [0, 0]])
-
-#         residual_kraus = np.diag([1, np.sqrt(1 - p)])
-#         return [residual_kraus, damping_op]
-
-
-#     def dephasing_kraus_map(p=0.10):
-
-#         return [np.sqrt(1 - p) * np.eye(2), np.sqrt(p) * np.diag([1, -1])]
 
 
 #     def tensor_kraus_maps(k1, k2):

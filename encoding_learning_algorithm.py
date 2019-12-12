@@ -48,7 +48,6 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
     num_shots = 1024
     qubits = qc.qubits()
     init_params = np.random.rand(3)
-
     ideal_params = []
     ideal_encoding_params = []
     init_encoding_params = []
