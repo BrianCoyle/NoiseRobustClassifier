@@ -22,7 +22,7 @@ from collections import Counter
 import random
 from sklearn.datasets import make_circles, make_moons
 
-from noise_models import add_noisy_gate_to_circ, estimate_meas_noise
+from noise_models import add_noisy_gate_to_circ
 from classifier_circuits import NoisyCircuits
 from data_gen import *
 # from plots import plot_correct_classifications

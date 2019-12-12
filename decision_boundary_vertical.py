@@ -14,7 +14,7 @@ from collections import Counter
 import random
 from sklearn.datasets import make_circles, make_moons
 
-from noise_models import add_noisy_gate_to_circ, estimate_meas_noise
+from noise_models import add_noisy_gate_to_circ
 from classifier_circuits import *
 from data_gen import *
 from single_qubit_classifier import train_classifier, ClassificationCircuit, classifier_params
