@@ -42,9 +42,12 @@ def classifier_params(qubits, values):
         value : Union[float, int]
             Initial parameter value that appears in all gates.
     """
+    
+    values = list(np.array(values).reshape(len(qubits), 3))
+    params = {qubits[ii]: list(values[ii]) for ii in qubits}  
+    
+    print('Parameters are:', params)
 
-    params = {qubits[ii]: [value for value in values[ii]] for ii in qubits}  
-    print(params)
     return Parameters(params)
 
 
@@ -182,9 +185,7 @@ class ClassificationCircuit(BaseAnsatz):
         return predicted_labels
     
     def build_classifier(self, param_values, encoding_choice, encoding_params, num_shots, qc, true_labels):
-       
         self.params = classifier_params(self.qubits, param_values)
-
         self._encoding(encoding_choice, encoding_params)
         self._add_class_circuits()
         predicted_labels = self._predict(num_shots, qc)
@@ -238,7 +239,7 @@ def train_classifier(qc, num_shots, init_params, encoding_choice, encoding_param
 
     def store(current_params):
         params.append(list(current_params))
-    print(optimiser)
+
     result = minimize(ClassificationCircuit(qubits, data).build_classifier, init_params,    method=optimiser,\
                                                                                             callback=store,\
                                                                                             args=(encoding_choice, encoding_params, num_shots, qc, true_labels))
