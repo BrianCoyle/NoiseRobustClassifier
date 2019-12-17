@@ -94,7 +94,7 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
     data_grid, grid_true_labels = remove_zeros(data_grid, grid_true_labels)
     
     if ideal:
-        print('Hello')
+
         predicted_labels_test = ClassificationCircuit(qubits, data_vertical_test).make_predictions(ideal_params_vertical, encoding_choice, init_encoding_params, num_shots, qc)
         plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
         scatter(data_vertical_test, true_labels_test, predicted_labels_test, **plot_params)
@@ -125,8 +125,6 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
 
     
     if noise:
-        print('in here')
-
         ## Overlay decision boundary
         '''
         # Generate Grid of datapoints to determine and visualise ideal decision boundary WITH noise added

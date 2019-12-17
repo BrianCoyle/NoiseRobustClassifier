@@ -85,7 +85,7 @@ class RigettiDevice:
         if p0 is None:  # pragma no coverage
             p0 = Program()
         ro = p0.declare("ro", 'BIT',2)
-        print(q)
+
         pI = p0  + Program(I(q), MEASURE(q, ro[0]))
         pI.wrap_in_numshots_loop(trials)
         results_i = np.sum(self.qc.run(self.qc.compile(pI)))
@@ -102,12 +102,12 @@ class RigettiDevice:
                         [1 - p00, p11]])
 
 
-n_runs = 5
-chip_name = "2q-qvm"
-device = RigettiDevice(chip_name, simulated=True)
-# device.characterise_chip_measurement(1024)
-device.compute_avg_meas_probs(n_runs)
-
+# n_runs = 10
+# chip_name = "Aspen-4-2Q-A"
+# device = RigettiDevice(chip_name, simulated=True)
+# # device.characterise_chip_measurement(1024)
+# avg_probs = device.compute_avg_meas_probs(n_runs)
+# print(avg_probs)
 # print(device.chip_noise)
 
 
@@ -348,131 +348,131 @@ device.compute_avg_meas_probs(n_runs)
 #         return sorted({i for i in prog if isinstance(i, Gate)}, key=lambda g: g.out())
 
 
-#     def _decoherence_noise_model(gates, T1=30e-6, T2=30e-6, gate_time_1q=50e-9,
-#                                 gate_time_2q=150e-09, ro_fidelity=0.95):
+    # def _decoherence_noise_model(gates, T1=30e-6, T2=30e-6, gate_time_1q=50e-9,
+    #                             gate_time_2q=150e-09, ro_fidelity=0.95):
     
-#         all_qubits = set(sum(([t.index for t in g.qubits] for g in gates), []))
-#         if isinstance(T1, dict):
-#             all_qubits.update(T1.keys())
-#         if isinstance(T2, dict):
-#             all_qubits.update(T2.keys())
-#         if isinstance(ro_fidelity, dict):
-#             all_qubits.update(ro_fidelity.keys())
+    #     all_qubits = set(sum(([t.index for t in g.qubits] for g in gates), []))
+    #     if isinstance(T1, dict):
+    #         all_qubits.update(T1.keys())
+    #     if isinstance(T2, dict):
+    #         all_qubits.update(T2.keys())
+    #     if isinstance(ro_fidelity, dict):
+    #         all_qubits.update(ro_fidelity.keys())
 
-#         if not isinstance(T1, dict):
-#             T1 = {q: T1 for q in all_qubits}
+    #     if not isinstance(T1, dict):
+    #         T1 = {q: T1 for q in all_qubits}
 
-#         if not isinstance(T2, dict):
-#             T2 = {q: T2 for q in all_qubits}
+    #     if not isinstance(T2, dict):
+    #         T2 = {q: T2 for q in all_qubits}
 
-#         if not isinstance(ro_fidelity, dict):
-#             ro_fidelity = {q: ro_fidelity for q in all_qubits}
+    #     if not isinstance(ro_fidelity, dict):
+    #         ro_fidelity = {q: ro_fidelity for q in all_qubits}
 
-#         noisy_identities_1q = {
-#             q: damping_after_dephasing(T1.get(q, INFINITY), T2.get(q, INFINITY), gate_time_1q)
-#             for q in all_qubits
-#         }
-#         noisy_identities_2q = {
-#             q: damping_after_dephasing(T1.get(q, INFINITY), T2.get(q, INFINITY), gate_time_2q)
-#             for q in all_qubits
-#         }
-#         kraus_maps = []
-#         for g in gates:
-#             targets = tuple(t.index for t in g.qubits)
-#             key = (g.name, tuple(g.params))
-#             if g.name in NO_NOISE:
-#                 continue
-#             matrix, _ = get_noisy_gate(g.name, g.params)
+    #     noisy_identities_1q = {
+    #         q: damping_after_dephasing(T1.get(q, INFINITY), T2.get(q, INFINITY), gate_time_1q)
+    #         for q in all_qubits
+    #     }
+    #     noisy_identities_2q = {
+    #         q: damping_after_dephasing(T1.get(q, INFINITY), T2.get(q, INFINITY), gate_time_2q)
+    #         for q in all_qubits
+    #     }
+    #     kraus_maps = []
+    #     for g in gates:
+    #         targets = tuple(t.index for t in g.qubits)
+    #         key = (g.name, tuple(g.params))
+    #         if g.name in NO_NOISE:
+    #             continue
+    #         matrix, _ = get_noisy_gate(g.name, g.params)
 
-#             if len(targets) == 1:
-#                 noisy_I = noisy_identities_1q[targets[0]]
-#             else:
-#                 if len(targets) != 2:
-#                     raise ValueError("Noisy gates on more than 2Q not currently supported")
+    #         if len(targets) == 1:
+    #             noisy_I = noisy_identities_1q[targets[0]]
+    #         else:
+    #             if len(targets) != 2:
+    #                 raise ValueError("Noisy gates on more than 2Q not currently supported")
 
-#                 # note this ordering of the tensor factors is necessary due to how the QVM orders
-#                 # the wavefunction basis
-#                 noisy_I = tensor_kraus_maps(noisy_identities_2q[targets[1]],
-#                                             noisy_identities_2q[targets[0]])
-#             kraus_maps.append(KrausModel(g.name, tuple(g.params), targets,
-#                                         combine_kraus_maps(noisy_I, [matrix]),
-#                                         # FIXME (Nik): compute actual avg gate fidelity for this simple
-#                                         # noise model
-#                                         1.0))
-#         aprobs = {}
-#         for q, f_ro in ro_fidelity.items():
-#             aprobs[q] = np.array([[f_ro, 1. - f_ro],
-#                                 [1. - f_ro, f_ro]])
+    #             # note this ordering of the tensor factors is necessary due to how the QVM orders
+    #             # the wavefunction basis
+    #             noisy_I = tensor_kraus_maps(noisy_identities_2q[targets[1]],
+    #                                         noisy_identities_2q[targets[0]])
+    #         kraus_maps.append(KrausModel(g.name, tuple(g.params), targets,
+    #                                     combine_kraus_maps(noisy_I, [matrix]),
+    #                                     # FIXME (Nik): compute actual avg gate fidelity for this simple
+    #                                     # noise model
+    #                                     1.0))
+    #     aprobs = {}
+    #     for q, f_ro in ro_fidelity.items():
+    #         aprobs[q] = np.array([[f_ro, 1. - f_ro],
+    #                             [1. - f_ro, f_ro]])
 
-#         return NoiseModel(kraus_maps, aprobs)
-
-
-#     def decoherence_noise_with_asymmetric_ro(gates: Sequence[Gate], p00=0.975, p11=0.911):
-
-#         noise_model = _decoherence_noise_model(gates)
-#         aprobs = np.array([[p00, 1 - p00],
-#                         [1 - p11, p11]])
-#         aprobs = {q: aprobs for q in noise_model.assignment_probs.keys()}
-#         return NoiseModel(noise_model.gates, aprobs)
+    #     return NoiseModel(kraus_maps, aprobs)
 
 
-#     def _noise_model_program_header(noise_model):
+    # def decoherence_noise_with_asymmetric_ro(gates: Sequence[Gate], p00=0.975, p11=0.911):
+
+    #     noise_model = _decoherence_noise_model(gates)
+    #     aprobs = np.array([[p00, 1 - p00],
+    #                     [1 - p11, p11]])
+    #     aprobs = {q: aprobs for q in noise_model.assignment_probs.keys()}
+    #     return NoiseModel(noise_model.gates, aprobs)
+
+
+    # def _noise_model_program_header(noise_model):
   
-#         from pyquil.quil import Program
-#         p = Program()
-#         defgates = set()
-#         for k in noise_model.gates:
+    #     from pyquil.quil import Program
+    #     p = Program()
+    #     defgates = set()
+    #     for k in noise_model.gates:
 
-#             # obtain ideal gate matrix and new, noisy name by looking it up in the NOISY_GATES dict
-#             try:
-#                 ideal_gate, new_name = get_noisy_gate(k.gate, tuple(k.params))
+    #         # obtain ideal gate matrix and new, noisy name by looking it up in the NOISY_GATES dict
+    #         try:
+    #             ideal_gate, new_name = get_noisy_gate(k.gate, tuple(k.params))
 
-#                 # if ideal version of gate has not yet been DEFGATE'd, do this
-#                 if new_name not in defgates:
-#                     p.defgate(new_name, ideal_gate)
-#                     defgates.add(new_name)
-#             except NoisyGateUndefined:
-#                 print("WARNING: Could not find ideal gate definition for gate {}".format(k.gate),
-#                     file=sys.stderr)
-#                 new_name = k.gate
+    #             # if ideal version of gate has not yet been DEFGATE'd, do this
+    #             if new_name not in defgates:
+    #                 p.defgate(new_name, ideal_gate)
+    #                 defgates.add(new_name)
+    #         except NoisyGateUndefined:
+    #             print("WARNING: Could not find ideal gate definition for gate {}".format(k.gate),
+    #                 file=sys.stderr)
+    #             new_name = k.gate
 
-#             # define noisy version of gate on specific targets
-#             p.define_noisy_gate(new_name, k.targets, k.kraus_ops)
+    #         # define noisy version of gate on specific targets
+    #         p.define_noisy_gate(new_name, k.targets, k.kraus_ops)
 
-#         # define noisy readouts
-#         for q, ap in noise_model.assignment_probs.items():
-#             p.define_noisy_readout(q, p00=ap[0, 0], p11=ap[1, 1])
-#         return p
+    #     # define noisy readouts
+    #     for q, ap in noise_model.assignment_probs.items():
+    #         p.define_noisy_readout(q, p00=ap[0, 0], p11=ap[1, 1])
+    #     return p
 
 
-#     def apply_noise_model(prog, noise_model):
+    # def apply_noise_model(prog, noise_model):
      
-#         new_prog = _noise_model_program_header(noise_model)
-#         for i in prog:
-#             if isinstance(i, Gate):
-#                 try:
-#                     _, new_name = get_noisy_gate(i.name, tuple(i.params))
-#                     new_prog += Gate(new_name, [], i.qubits)
-#                 except NoisyGateUndefined:
-#                     new_prog += i
-#             else:
-#                 new_prog += i
-#         return new_prog
+    #     new_prog = _noise_model_program_header(noise_model)
+    #     for i in prog:
+    #         if isinstance(i, Gate):
+    #             try:
+    #                 _, new_name = get_noisy_gate(i.name, tuple(i.params))
+    #                 new_prog += Gate(new_name, [], i.qubits)
+    #             except NoisyGateUndefined:
+    #                 new_prog += i
+    #         else:
+    #             new_prog += i
+    #     return new_prog
 
 
-#     def add_decoherence_noise(prog, T1=30e-6, T2=30e-6, gate_time_1q=50e-9, gate_time_2q=150e-09,
-#                             ro_fidelity=0.95):
+    # def add_decoherence_noise(prog, T1=30e-6, T2=30e-6, gate_time_1q=50e-9, gate_time_2q=150e-09,
+    #                         ro_fidelity=0.95):
       
-#         gates = _get_program_gates(prog)
-#         noise_model = _decoherence_noise_model(
-#             gates,
-#             T1=T1,
-#             T2=T2,
-#             gate_time_1q=gate_time_1q,
-#             gate_time_2q=gate_time_2q,
-#             ro_fidelity=ro_fidelity
-#         )
-#         return apply_noise_model(prog, noise_model)
+    #     gates = _get_program_gates(prog)
+    #     noise_model = _decoherence_noise_model(
+    #         gates,
+    #         T1=T1,
+    #         T2=T2,
+    #         gate_time_1q=gate_time_1q,
+    #         gate_time_2q=gate_time_2q,
+    #         ro_fidelity=ro_fidelity
+    #     )
+    #     return apply_noise_model(prog, noise_model)
 
 
 #     def _bitstring_probs_by_qubit(p):
@@ -517,3 +517,33 @@ device.compute_avg_meas_probs(n_runs)
 
 
 
+def get_device_noise_params(qc_name):
+    
+    """
+    # From https://qcs.rigetti.com/lattices on Monday 16th December 2019 14.49pm UK time.
+    """
+
+    if qc_name.lower() == 'aspen-4-2q-a-qvm':
+        T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 33e-6, 19.13e-6, 50e-9, 150e-09, 0.9607
+        # T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = np.inf, np.inf, 0, 0, 1
+
+    elif  qc_name.lower() == 'aspen-4-2q-c-qvm':
+        T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 33.81e-6, 20.95e-6, 50e-9, 150e-09, 0.9684
+    elif  qc_name.lower() == 'aspen-4-3q-d-qvm':
+        T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 42.91e-6, 20.78e-6, 50e-9, 150e-09, 0.9472
+    elif  qc_name == 'Aspen-4-3Q-E-qvm':
+        T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 16.45e-6, 13.53e-6, 50e-9, 150e-09, 0.9518
+    elif  qc_name == 'Aspen-4-3Q-A-qvm':
+        T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 27.69e-6, 25.61e-6, 50e-9, 150e-09, 0.9518
+    elif qc_name[-4:] == 'q-qvm':
+        print("THIS IS NOT SIMULATING A REAL CHIP")
+        T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 30e-6, 30e-6, 50e-9, 150e-09, 0.95
+
+    else: raise ValueError("Chip does not have noise parameters available")
+
+    noise_params = [T1, T2, gate_time_1q, gate_time_2q, ro_fidelity]
+    return noise_params
+    
+    
+    
+    

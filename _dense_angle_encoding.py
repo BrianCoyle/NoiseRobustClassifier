@@ -19,8 +19,8 @@ from pyquil import Program
 
 # Changes from original:
 # Extra argument in encoder
-
-
+# Feature vector doesn't work for chips indexed not starting at 0
+# range(len(self.feature_map.map)) <- self.feature_map.map
 class DenseAngleEncoding:
     """DenseAngleEncoding class. Encode features into the angles of qubits via
 
@@ -74,7 +74,6 @@ class DenseAngleEncoding:
         """Writes the encoding circuit into self.circuit."""
         # grab the feature vector to create a circuit with
         feature_vector = self.data.data[feature_vector_index]
-
         # program to write
         prog = Program()
 
@@ -87,7 +86,8 @@ class DenseAngleEncoding:
         # etc.
 
         qubit_features = {}
-        for ind in range(len(self.feature_map.map)):
+     
+        for ind in self.feature_map.map:
             # temp list for all features
             features = []
             for x in self.feature_map.map[ind]:
@@ -138,7 +138,7 @@ def angles_to_matrix(angles):
     # TODO: allow for just one angle (odd number of features case)
     theta = angles[0] / 2
     phi = angles[1]
-
+  
     # form the matrix
     mat = array([[cos(theta), exp(-1j * phi) * sin(theta)],
                  [exp(1j * phi) * sin(theta), -1 * cos(theta)]])

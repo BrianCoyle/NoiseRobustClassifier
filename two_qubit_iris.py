@@ -39,15 +39,19 @@ def main(train=False, retrain=False, data_choice='iris', noise_choice='amp_damp_
     data_train, true_labels_train   = remove_zeros(data_train, true_labels_train)
     data_test, true_labels_test     = remove_zeros(data_test, true_labels_test)
 
-    encodings = [ 'denseangle_param','superdenseangle_param', 'wavefunction_param' ]
-    # encodings = [  'superdenseangle_param']
+    # encodings = [ 'denseangle_param','superdenseangle_param', 'wavefunction_param' ]
+    encodings = [  'denseangle_param']
     minimal_costs, ideal_costs, noisy_costs, noisy_costs_uncorrected = [np.ones(len(encodings)) for _ in range(4)]
 
     qc_name = '2q-qvm'
     qc = get_qc(qc_name)
-    num_shots = 1024
+    num_shots = 200
     qubits = qc.qubits()
-    init_params = np.random.rand(len(qubits), 3)
+    n_layers = 1
+    # init_params = np.random.rand(len(qubits),n_layers,  3)
+    # init_params = np.random.rand(len(qubits),n_layers,  3)
+    # init_params = np.random.rand((7)) # TTN
+    init_params = np.random.rand((12)) # TTN
 
     ideal_params = []
     ideal_encoding_params = []
@@ -67,10 +71,10 @@ def main(train=False, retrain=False, data_choice='iris', noise_choice='amp_damp_
         if train:
 
             optimiser = 'Powell' 
-            params, result_unitary_param = train_classifier(qc, num_shots, init_params, encoding_choice, init_encoding_params[ii], optimiser, data_train, true_labels_train)
+            params, result_unitary_param = train_classifier(qc, num_shots, init_params, n_layers, encoding_choice, init_encoding_params[ii], optimiser, data_train, true_labels_train)
 
             print('The optimised parameters are:', result_unitary_param.x)
-            print('These give a cost of:', ClassificationCircuit(qubits, data_train).build_classifier(result_unitary_param.x, encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_train))
+            print('These give a cost of:', ClassificationCircuit(qubits, data_train).build_classifier(result_unitary_param.x, n_layers,  encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_train))
             ideal_params.append(result_unitary_param.x)
         else:
 
@@ -80,10 +84,11 @@ def main(train=False, retrain=False, data_choice='iris', noise_choice='amp_damp_
                 elif    encoding_choice.lower()  == 'wavefunction':                 ideal_params.append([])
                 elif    encoding_choice.lower() == 'wavefunction_param':            ideal_params.append([])
 
-        ideal_costs[ii] = ClassificationCircuit(qubits, data_test).build_classifier(ideal_params[ii], encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_test)
+        ideal_costs[ii] = ClassificationCircuit(qubits, data_test).build_classifier(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_test)
         
         print('In the ideal case, the cost is:', ideal_costs[ii])
-        predicted_labels_ideal = ClassificationCircuit(qubits, data_test).make_predictions(ideal_params[ii], encoding_choice, init_encoding_params[ii], num_shots, qc)
+        print(ideal_params[ii])
+        predicted_labels_ideal = ClassificationCircuit(qubits, data_test).make_predictions(ideal_params[ii], n_layers,  encoding_choice, init_encoding_params[ii], num_shots, qc)
         
         # noisy_costs_uncorrected[ii] = ClassificationCircuit(qubits, data_test, noise_choice, noise_values).build_classifier(ideal_params[ii], encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_test) 
         # print('\nWithout encoding training, the noisy cost is:', noisy_costs_uncorrected[ii])

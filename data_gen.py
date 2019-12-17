@@ -6,6 +6,7 @@ from sklearn.datasets import make_moons
 from sklearn.datasets import load_iris
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 
 def grid_pts(nx=12, ny=12):
     """
@@ -151,12 +152,17 @@ def generate_data(data_choice, num_points, random_seed=None, split=False, split_
             # 4 dimensional data set. 4 features can be encoded in two qubits.
             iris_data = load_iris()
 
-            data, labels = [], []
+            min_max_scaler = MinMaxScaler(feature_range=(0, np.pi/2))
 
+            iris_data['data'] = min_max_scaler.fit_transform(iris_data['data'])
+
+            data, labels = [], []
             for ii, label in enumerate(iris_data['target']):
-                if label == 1 or label == 2: #Only take classes 1 or 2
+                if label == 0 or label == 2: #Only take classes 1 or 2
                     data.append(iris_data['data'][ii])
-                    labels.append(iris_data['target'][ii])
+                    # labels.append(iris_data['target'][ii])
+                    if label == 0: labels.append(0)
+                    elif label == 2: labels.append(1)
 
             data = np.array(data)
             labels = np.array(labels)
@@ -198,3 +204,5 @@ def scale_data(unscaled_data):
         scaled_data[ii] = np.array([point[0]/3+1/3, 2*point[1]/3 + 1/3])
 
     return scaled_data
+
+
