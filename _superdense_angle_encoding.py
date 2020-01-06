@@ -85,7 +85,7 @@ class SuperDenseAngleEncoding:
         # etc.
 
         qubit_features = {}
-        for ind in range(len(self.feature_map.map)):
+        for ind in self.feature_map.map:
             # temp list for all features
             features = []
             for x in self.feature_map.map[ind]:

@@ -524,7 +524,9 @@ def get_device_noise_params(qc_name):
     """
 
     if qc_name.lower() == 'aspen-4-2q-a-qvm':
-        T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 33e-6, 19.13e-6, 50e-9, 150e-09, 0.9607
+        # T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 33e-6, 19.13e-6, 50e-9, 150e-09, 0.9607
+        T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = 33e-6, 19.13e-6, 50e-09, 150e-09, 0.9607
+
         # T1, T2, gate_time_1q, gate_time_2q, ro_fidelity = np.inf, np.inf, 0, 0, 1
 
     elif  qc_name.lower() == 'aspen-4-2q-c-qvm':

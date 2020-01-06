@@ -3,14 +3,14 @@ from pyquil.gates import *
 from noise_models import add_noisy_gate_to_circ
 from noise_models import *
 from pyquil.noise import add_decoherence_noise
-
+from DeviceCharacterisers.rigetti_devices import get_device_noise_params
 class NoisyCircuits():
 
-    def __init__(self, circuit, params, device_qubits, noise=None, noise_params=None, qc=None, num_shots=100):
+    def __init__(self, circuit, params, classifier_qubits, noise=None, noise_params=None, qc=None, num_shots=100):
         self.circuit = circuit
         self.noise_model = noise
         self.params = params
-        self.device_qubits = device_qubits
+        self.classifier_qubits = classifier_qubits
         self.n_layers = len(list(self.params.values.items())[0])
 
         if noise == None:
@@ -22,9 +22,11 @@ class NoisyCircuits():
             elif self.noise_model.lower() == "pauli_before_measurement":    self._pauli_before_meas_circuit()
             elif self.noise_model.lower() == "decoherence_symmetric_ro":    
                 self._ideal_circuit()
-
+                if qc.name[-3:-1] == 'qvm': # If chip runs as a qvm, get simulated noise parameters
+                    self.noise_params = get_device_noise_params(qc.name)
+                
                 ro = circuit.declare('ro', 'BIT', 1)
-                self.circuit += MEASURE(self.device_qubits[0], ro[0])
+                self.circuit += MEASURE(self.classifier_qubits[0], ro[0])
 
                 if qc is not None:
                     self.nativize(qc)
@@ -45,63 +47,64 @@ class NoisyCircuits():
         # TTN Classifier
         # self.circuit += RY(self.params.values[0][0], self.qubits[0])
         # self.circuit += RY(self.params.values[1][0], self.qubits[1])
-        # self.circuit += RY(self.params.values[2][0], self.device_qubits[2])
-        # self.circuit += RY(self.params.values[3][0], self.device_qubits[3])
-        # self.circuit += CNOT(self.device_qubits[0], self.device_qubits[1])
-        # self.circuit += CNOT(self.device_qubits[3], self.device_qubits[2])
-        # self.circuit += RY(self.params.values[1][1], self.device_qubits[1])
-        # self.circuit += RY(self.params.values[2][1], self.device_qubits[2])
-        # self.circuit += CNOT(self.device_qubits[1], self.device_qubits[2])
-        # self.circuit += RY(self.params.values[2][2], self.device_qubits[2])
-        #TTN Ideal Params:  params.values = [0.12629255,  2.25997405,  0.67599152,  2.59226323,  0.31532559,  0.42584651, -1.07522358]
-        # NEED TO CHANGE MEASUREMENT QUBIT TO QUBIT *2*
+        # self.circuit += RY(self.params.values[2][0], self.classifier_qubits[2])
+        # self.circuit += RY(self.params.values[3][0], self.classifier_qubits[3])
+        # self.circuit += CNOT(self.classifier_qubits[0], self.classifier_qubits[1])
+        # self.circuit += CNOT(self.classifier_qubits[3], self.classifier_qubits[2])
+        # self.circuit += RY(self.params.values[
+        # 1][1], self.classifier_qubits[1])
+        # self.circuit += RY(self.params.values[2][1], self.classifier_qubits[2])
+        # self.circuit += CNOT(self.classifier_qubits[1], self.classifier_qubits[2])
+        # self.circuit += RY(self.params.values[2][2], self.classifier_qubits[2])
+        # TTN Ideal Params:  params.values = [0.12629255,  2.25997405,  0.67599152,  2.59226323,  0.31532559,  0.42584651, -1.07522358]
+        # NOTE: for TNN, NEED TO CHANGE MEASUREMENT QUBIT TO QUBIT *2*
         #######################################################################
-        first_qubit_index = self.device_qubits[0]
-        if len(self.device_qubits) == 1:
-
+        first_qubit_index = self.classifier_qubits[0]
+        
+        if len(self.classifier_qubits) == 1:
+            # pass
             self.circuit += RZ(2*self.params.values[first_qubit_index][0][0], first_qubit_index)
             self.circuit += RY(2*self.params.values[first_qubit_index][0][1], first_qubit_index)
             self.circuit += RZ(2*self.params.values[first_qubit_index][0][2], first_qubit_index)
-        elif len(self.device_qubits) == 2:
+        elif len(self.classifier_qubits) == 2:
             # Arbitrary Two qubit unitary decompostions (up to a global phase) from 
-            ## G. Vidal and C.M. Dawson Phys. Rev. A 69, 010301(R) 
-            ## M Blaauboer and R L de Visser 2008 J. Phys. A: Math. Theor. 41 395307
-            
+            # G. Vidal and C.M. Dawson Phys. Rev. A 69, 010301(R) 
+            # M Blaauboer and R L de Visser 2008 J. Phys. A: Math. Theor. 41 395307
             # Layer 1
-            for ii, qubit in enumerate(self.device_qubits):
+            for ii, qubit in enumerate(self.classifier_qubits):
                 # First three parameters for each qubit give general single qubit unitary. Will be overparameterized.
-                self.circuit += RZ(2*self.params.values[ii][0][0], qubit)
-                self.circuit += RY(2*self.params.values[ii][0][1], qubit)
-                self.circuit += RZ(2*self.params.values[ii][0][2], qubit)
+                self.circuit += RZ(2*self.params.values[qubit][0][0], qubit)
+                self.circuit += RY(2*self.params.values[qubit][0][1], qubit)
+                self.circuit += RZ(2*self.params.values[qubit][0][2], qubit)
 
             # Layer 2    
-            self.circuit += CNOT(self.device_qubits[0], self.device_qubits[1])
-            self.circuit += H(self.device_qubits[0])
-            self.circuit += RX(2*self.params.values[0][1][0] + np.pi, self.device_qubits[0])
-            self.circuit += RZ(2*self.params.values[1][1][0], self.device_qubits[1])
+            self.circuit += CNOT(self.classifier_qubits[0], self.classifier_qubits[1])
+            self.circuit += H(self.classifier_qubits[0])
+            self.circuit += RX(2*self.params.values[self.classifier_qubits[0]][1][0] + np.pi, self.classifier_qubits[0])
+            self.circuit += RZ(2*self.params.values[self.classifier_qubits[1]][1][0], self.classifier_qubits[1])
 
-            # # Layer 3
-            self.circuit += CNOT(self.device_qubits[0], self.device_qubits[1])
-            # self.circuit += H(self.device_qubits[0])
-            # self.circuit += RZ(-2*self.params.values[1][2][0], self.device_qubits[1])
+            # Layer 3
+            self.circuit += CNOT(self.classifier_qubits[0], self.classifier_qubits[1])
+            self.circuit += H(self.classifier_qubits[0])
+            self.circuit += RZ(-2*self.params.values[self.classifier_qubits[1]][2][0], self.classifier_qubits[1])
             
-            # # Layer 4
-            # self.circuit += CNOT(self.device_qubits[0], self.device_qubits[1])
+            # Layer 4
+            self.circuit += CNOT(self.classifier_qubits[0], self.classifier_qubits[1])
             
-            # self.circuit += RZ(np.pi/2, self.device_qubits[0])
+            self.circuit += RZ(np.pi/2, self.classifier_qubits[0])
 
-            # self.circuit += RZ(2*self.params.values[0][3][0],  self.device_qubits[0])
-            # self.circuit += RY(2*self.params.values[0][3][1],  self.device_qubits[0])
-            # self.circuit += RZ(2*self.params.values[0][3][2],  self.device_qubits[0])
+            self.circuit += RZ(2*self.params.values[self.classifier_qubits[0]][3][0],  self.classifier_qubits[0])
+            self.circuit += RY(2*self.params.values[self.classifier_qubits[0]][3][1],  self.classifier_qubits[0])
+            self.circuit += RZ(2*self.params.values[self.classifier_qubits[0]][3][2],  self.classifier_qubits[0])
 
-            # Layered circuit
+            # # Layered circuit
             # for layer in range(self.n_layers):  
             #     # parameters should be an array of size n_device_qubits x n_layers x 3
-            #     for ii, qubit in enumerate(self.device_qubits):
+            #     for ii, qubit in enumerate(self.classifier_qubits):
             #         self.circuit += RZ(2*self.params.values[ii][layer][0], qubit)
             #         self.circuit += RY(2*self.params.values[ii][layer][1], qubit)
             #         self.circuit += RZ(2*self.params.values[ii][layer][2], qubit)
-            #     self.circuit += CZ(self.device_qubits[0], self.device_qubits[1]) # Unparameterized entanglement gate
+            #     self.circuit += CZ(self.classifier_qubits[0], self.classifier_qubits[1]) # Unparameterized entanglement gate
 
         return self.circuit  
 
@@ -119,10 +122,10 @@ class NoisyCircuits():
         """
         p_dephase = self.noise_params 
         self._ideal_circuit()
-        self.circuit += I(self.device_qubits[0])
+        self.circuit += I(self.classifier_qubits[0])
         noisy_i = dephased_i_gate(p_dephase)
 
-        self.circuit = add_noisy_gate_to_circ(self.circuit, noisy_i, [self.device_qubits[0]], 'iden')
+        self.circuit = add_noisy_gate_to_circ(self.circuit, noisy_i, [self.classifier_qubits[0]], 'iden')
 
         return self.circuit  
 
@@ -135,10 +138,10 @@ class NoisyCircuits():
         
         self._ideal_circuit()
 
-        self.circuit += I(self.device_qubits[0])
+        self.circuit += I(self.classifier_qubits[0])
         noisy_iden = pauli_noise_i_gate(p_I, p_x, p_y, p_z)
 
-        self.circuit = add_noisy_gate_to_circ(self.circuit, noisy_iden, [self.device_qubits[0]], 'iden')
+        self.circuit = add_noisy_gate_to_circ(self.circuit, noisy_iden, [self.classifier_qubits[0]], 'iden')
 
         return self.circuit  
 
@@ -148,10 +151,11 @@ class NoisyCircuits():
         """
         p_damp = self.noise_params 
         self._ideal_circuit()
-        self.circuit += I(self.device_qubits[0])
+    
+        self.circuit += I(self.classifier_qubits[0])    
         noisy_iden = amp_damp_i_gate(p_damp)
 
-        self.circuit = add_noisy_gate_to_circ(self.circuit, noisy_iden, [self.device_qubits[0]], 'iden')
+        self.circuit = add_noisy_gate_to_circ(self.circuit, noisy_iden, [self.classifier_qubits[0]], 'iden')
 
         return self.circuit 
 
@@ -163,7 +167,7 @@ class NoisyCircuits():
         
         self._ideal_circuit()
 
-        for q in self.device_qubits:
+        for q in self.classifier_qubits:
             self.circuit.define_noisy_readout(q, p00, p11)
 
         return self.circuit 
@@ -180,7 +184,6 @@ class NoisyCircuits():
         - 2q gate time = 150 ns     gate_time_2q = 150e-09
                                     ro_fidelity  = 0.95
         """
-
         [T1, T2, gate_time_1q, gate_time_2q, ro_fidelity] = self.noise_params
 
         self.circuit = add_decoherence_noise(self.circuit, T1=T1, T2=T2, gate_time_1q=gate_time_1q, gate_time_2q=gate_time_2q, ro_fidelity=ro_fidelity)

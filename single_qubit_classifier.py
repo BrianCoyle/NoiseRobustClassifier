@@ -44,21 +44,22 @@ def classifier_params(classifier_qubits, values, n_layers=1):
             Initial parameter value that appears in all gates.
     """
    
-    values = list(np.array(values).reshape(len(classifier_qubits), n_layers, 3))
-    params = { qubit: list(values[ii]) for ii, qubit in enumerate(classifier_qubits)}  
-    # params = {qubits[0]: [values[0]], qubits[1]: [values[1], values[2]], qubits[2]: [values[3], values[4], values[5]], qubits[3]: [ values[6] ]
-    # params = {  qubits[0]: [[values[0], values[1], values[2]],\
-    #                         [values[6]],\
-    #                         [],\
-    #                         [values[9], values[10], values[11]],\
-    #                         # [values[9], values[10], values[11]],\
-    #                         ],\
-    #             qubits[1]: [[values[3], values[4], values[5]],\
-    #                         [values[7]],\
-    #                         [values[8]],\
-    #                         ]}
-    # params = {  qubits[0]: [[values[0], values[1], values[2]], [values[6]]],\
-    #         qubits[1]: [[values[3], values[4], values[5]],  [values[7]]]}
+    if len(classifier_qubits) == 1:
+        values = list(np.array(values).reshape(len(classifier_qubits), n_layers, 3))
+        params = { qubit: list(values[ii]) for ii, qubit in enumerate(classifier_qubits)}  
+    
+    elif len(classifier_qubits) == 2:
+
+        params = {  classifier_qubits[0]: [[values[0], values[1], values[2]],\
+                                [values[6]],\
+                                [],\
+                                [values[9], values[10], values[11]],\
+                                ],\
+                    classifier_qubits[1]: [[values[3], values[4], values[5]],\
+                                [values[7]],\
+                                [values[8]],\
+                                ]} # General 2 qubit unitary parameters
+
 
     print('Parameters are:', params)
 
@@ -84,19 +85,21 @@ def compute_label(results):
 
     num_zeros = new_result.count([0])
     num_ones = new_result.count([1])
+
     if num_zeros >= num_ones: return 0
     elif num_zeros < num_ones: return 1
 
 class ClassificationCircuit(BaseAnsatz):
     """Class for working with classifier circuit."""
 
-    def __init__(self,  classifier_qubits, feature_vectors, noise=None, noise_params=None):
+    def __init__(self,  classifier_qubits, feature_vectors,  qc=None, noise=None, noise_params=None):
         """Initializes a ClassifierAnsatz.
 
         Args:
-            num_qubits : int
-                Number of qubits in the ansatz
-            
+            classifier_qubits : list
+                list of qubits to use in classifier
+            qc : QuantumComputer
+                Quantum Computer to build classifier on.
             """
         # initialize the BaseAnsatz class
         super().__init__(len(classifier_qubits))
@@ -106,6 +109,7 @@ class ClassificationCircuit(BaseAnsatz):
         self.classifier_qubits = classifier_qubits
         self.noise_model = noise
         self.noise_params = noise_params
+        self.qc = qc
 
     def _encoding(self, encoding_choice, encoding_params=None):
         """Encodes feature vectors in circuits"""
@@ -123,11 +127,12 @@ class ClassificationCircuit(BaseAnsatz):
         self.feature_map = FeatureMap(feature_dict)
 
         self.encoding_params = encoding_params
-        #self.circuits = [BaseAnsatz(len(classifier_qubits)) for _ in range(self.data.num_samples)] #No encoding
+        # self.circuits = [BaseAnsatz(len(self.classifier_qubits)) for _ in range(self.data.num_samples)] #No encoding
         if encoding_choice.lower() == 'denseangle':
             self.circuits = DenseAngleEncoding(self.data, angle_param_linear, self.encoding_params, self.feature_map).circuits
 
         elif encoding_choice.lower() == 'denseangle_param':
+            # pass
             self.circuits = DenseAngleEncoding(self.data, angle_param_linear, self.encoding_params, self.feature_map).circuits
 
         elif encoding_choice.lower() == 'superdenseangle_param':
@@ -137,75 +142,64 @@ class ClassificationCircuit(BaseAnsatz):
             self.circuits = WaveFunctionEncoding(self.data).circuits
 
         elif encoding_choice.lower() == 'wavefunction_param':
-            self.circuits = GeneralisedWaveFunctionEncoding(self.data, self.encoding_params).circuits
+            self.circuits = GeneralisedWaveFunctionEncoding(self.data, self.encoding_params, self.qc).circuits
         else: raise ValueError("Encoding not defined")
 
         return self
 
-    def _add_class_circuits(self, qc=None, num_shots=None):
+    def _add_class_circuits(self, num_shots=None):
         """
         Add the (potentially noisy) parameterized circuit to every encoded Program
         """
         for ii, enc_circuit in enumerate(self.circuits):
             enc_circuit.circuit = NoisyCircuits(enc_circuit.circuit, self.params, self.classifier_qubits,\
                                                 noise=self.noise_model, noise_params=self.noise_params,\
-                                                qc=qc, num_shots=num_shots).circuit
-                
+                                                qc=self.qc, num_shots=num_shots).circuit
+
         return self
 
-    def _predict(self, qc, num_shots):
+    def _predict(self, num_shots):
         """
         Make predictions for each (noisy) circuit by measuring. 
         Args:
             num_shots : int
                 number of measurements to make on QuantumComputer for each feature vector
-            qc : QuantumComputer
-                Quantum Computer to build classifier on.
 
         Returns:
             predicted_labels : list
                 list of predictions for each feature vector
         """
         labels = []
-        self.device_qubits = qc.qubits()
-
+        self.device_qubits = self.qc.qubits()
+        executables = []
         for ii, enc_circuit in enumerate(self.circuits):
             
             # enc_circuit.circuit = add_measurement(enc_circuit.circuit, self.device_qubits)
             # enc_circuit.circuit.wrap_in_numshots_loop(num_shots)
             if self.noise_model is not None and self.noise_model.lower() == 'decoherence_symmetric_ro':
                 enc_circuit.circuit.wrap_in_numshots_loop(num_shots)
-                executable = qc.compile(enc_circuit.circuit, to_native_gates=False, optimize=False) # compile noisy circuit onto chip
-                # print("Circuit is:", enc_circuit.circuit,'\nExec is:', executable )
+                executables.append(self.qc.compile(enc_circuit.circuit, to_native_gates=False, optimize=False)) # compile noisy circuit onto chip
+    
             else:  
+
                 enc_circuit.circuit = add_measurement(enc_circuit.circuit, self.device_qubits)
                 enc_circuit.circuit.wrap_in_numshots_loop(num_shots)
-                native_gates = qc.compiler.quil_to_native_quil(enc_circuit.circuit)
-                executable = qc.compile(native_gates, to_native_gates=False, optimize=False)
-
-
- # If full decoherence model is used, gates must be compiled to native gates
                 # native_gates = qc.compiler.quil_to_native_quil(enc_circuit.circuit)
-                # enc_circuit.circuit = qc.compiler.quil_to_native_quil(enc_circuit.circuit)
-                # noisy_circ = NoisyCircuits(enc_circuit.circuit, self.params, self.classifier_qubits, self.noise_model, self.noise_params)
-                
-            # print(executable)
-            # enc_circuit.circuit = enc_circuit.circuit.nativ
+                # print(native_gates.native_quil_metadata)
+                # executable = qc.compiler.native_quil_to_executable(native_gates)
+                executables.append(self.qc.compile(enc_circuit.circuit, optimize=False, to_native_gates=False))
+            # print('Circuit is:', enc_circuit.circuit)
+            # print('NATIVE GATES:\n', native_gates)
+            results = self.qc.run(executables[ii])
 
-            # print(native_gates)
-            # print("The noise parameters for the chip, ", qc.name, "are: ", self.noise_params)
-            # noisy_circ = NoisyCircuits(enc_circuit.circuit, self.params, self.classifier_qubits, self.noise_model, self.noise_params)
-            # print('NOISY CIRCUIT WITHOUT ERRORS:', noisy_circ.circuit)
-            # noisy_circ.nativize(qc) # Nativize circuit for chip
-            # noisy_circ.decoherence_noise_model() # Add decoherence noise for native gates
-            # print('NOISY CIRCUIT WITHOUT ERRORS:', noisy_circ.circuit)
-            # print(executable)
 
-            results = qc.run(executable)
-            # print(results)
             label = compute_label(results) 
     
             labels.append(label)
+        print('\n Circuit is:', self.circuits[0])
+
+        # print('\nExecutable is:', executables[0])
+
 
         self.predicted_labels = np.array(labels)
         return self.predicted_labels
@@ -220,23 +214,21 @@ class ClassificationCircuit(BaseAnsatz):
 
         return self.cost
 
-    def make_predictions(self, param_values, n_layers, encoding_choice, encoding_params, num_shots, qc):
-
+    def make_predictions(self, param_values, n_layers, encoding_choice, encoding_params, num_shots):
         self.params = classifier_params(self.classifier_qubits, param_values, n_layers)
 
         self._encoding(encoding_choice, encoding_params)
-        self._add_class_circuits(qc)
-        predicted_labels = self._predict(qc, num_shots)
+        self._add_class_circuits()
+        predicted_labels = self._predict(num_shots)
 
         return predicted_labels
     
-    def build_classifier(self, param_values, n_layers, encoding_choice, encoding_params, num_shots, qc, true_labels):
+    def build_classifier(self, param_values, n_layers, encoding_choice, encoding_params, num_shots, true_labels):
        
         self.params = classifier_params(self.classifier_qubits, param_values, n_layers)
         self._encoding(encoding_choice, encoding_params)
-        self._add_class_circuits(qc)
-        predicted_labels = self._predict(qc, num_shots)
-        # print('Data point', self.data[0], '\nCircuit', self.circuits[0])
+        self._add_class_circuits()
+        predicted_labels = self._predict(num_shots)
 
         cost = self._compute_cost(true_labels) / len(true_labels)
         print('True labels are: ', true_labels)
@@ -245,31 +237,18 @@ class ClassificationCircuit(BaseAnsatz):
       
         return cost
 
-# data_train, data_test, true_labels_train, true_labels_test = generate_data('iris', num_points=500, split=True)
-# print(data_train)
-# qc_name  = '2q-qvm'
-# qc =get_qc(qc_name)
-# circ = ClassificationCircuit(qc.qubits(), data_train)
-
-# init_params = np.random.rand(2, 3)
-# print(init_params)
-
-# init_encoding_params = [np.pi, 2*np.pi]
-
-# circ.build_classifier(init_params, 'denseangle_param', init_encoding_params, 100, qc, true_labels_train)
-
-
 def build_classifier_encoding(encoding_params, encoding_choice, param_values, noise, noise_params, num_shots, qc, classifier_qubits, data, true_labels):
     """
     Same functionality as build_classifier, except encoding params are passed as the argument to the optimiser
     """
-    circ = ClassificationCircuit(classifier_qubits, data, noise, noise_params)
+    print("Encoding parameters are:", encoding_params)
+    circ = ClassificationCircuit(classifier_qubits, data, qc, noise, noise_params)
     circ.params = classifier_params(classifier_qubits, param_values)
 
     circ._encoding(encoding_choice, encoding_params)
 
     circ._add_class_circuits()
-    predicted_labels = circ._predict(num_shots, qc, num_shots)
+    predicted_labels = circ._predict(qc, num_shots)
     cost = circ._compute_cost(true_labels) / len(true_labels)
 
 
@@ -285,18 +264,27 @@ def train_classifier(qc, classifier_qubits,  num_shots, init_params, n_layers, e
     params = list(init_params)
     def store(current_params):
         params.append(list(current_params))
-    # no_bnd = (-np.inf, np.inf)
+   
+    result = minimize(ClassificationCircuit(classifier_qubits, data, qc).build_classifier, init_params,    method=optimiser,\
+                                                                                            callback=store,\
+                                                                                            args=(n_layers, encoding_choice, encoding_params,\
+                                                                                            num_shots, true_labels))
+    gradient = True
+
+    if gradient:
+        # TODO: """Minimize using parameter shift rule."""
+        pass
+
+    return params, result
+
+
+ # no_bnd = (-np.inf, np.inf)
     # bounds = (no_bnd,no_bnd,no_bnd,no_bnd,no_bnd,no_bnd,(0.0, np.pi/4),(0.0, np.pi/4),(0.0, np.pi/4),no_bnd,no_bnd,no_bnd) # Don't allow parameter to reach 1 in generalized wavefunction encoding
     # result = minimize(ClassificationCircuit(qubits, data).build_classifier, init_params,  method=optimiser,\
     #                                                                     callback=store,\
     #                                                                     bounds=bounds,\
     #                                                                     args=(n_layers, encoding_choice, encoding_params, num_shots, qc, true_labels),\
     #                                                                     options={'eps':0.1})
-
-    result = minimize(ClassificationCircuit(classifier_qubits, data).build_classifier, init_params,    method=optimiser,\
-                                                                                            callback=store,\
-                                                                                            args=(n_layers, encoding_choice, encoding_params, num_shots, qc, true_labels))
-    return params, result
 
 
 def train_classifier_encoding(qc, classifier_qubits, noise, noise_params, num_shots, init_params, encoding_choice, encoding_params, optimiser, data, true_labels):
@@ -326,13 +314,15 @@ def train_classifier_encoding(qc, classifier_qubits, noise, noise_params, num_sh
 def compute_number_misclassified(true_labels, noisy_predictions):
     return abs((true_labels-noisy_predictions)).sum()/len(true_labels)
 
-def generate_noisy_classification(ideal_params,  n_layers, noise_type, noise_params, encoding_choice, encoding_params, qc, classifier_qubits, num_shots, data, true_labels):
+def generate_noisy_classification(ideal_params,  n_layers, noise_type, noise_params, \
+                                    encoding_choice, encoding_params, qc, classifier_qubits,\
+                                    num_shots, data, true_labels):
 
     number_points = len(true_labels)
 
-    circ =  ClassificationCircuit(classifier_qubits, data, noise=noise_type, noise_params=noise_params)
+    circ =  ClassificationCircuit(classifier_qubits, data, qc=qc, noise=noise_type, noise_params=noise_params)
   
-    noisy_predictions = circ.make_predictions(ideal_params, n_layers,  encoding_choice, encoding_params, num_shots, qc)
+    noisy_predictions = circ.make_predictions(ideal_params, n_layers,  encoding_choice, encoding_params, num_shots)
 
     number_correctly_classified = 1 - compute_number_misclassified(true_labels, noisy_predictions)
 

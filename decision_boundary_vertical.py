@@ -31,7 +31,7 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
     '''
     # We use the transpose of the (scaled to unit square) Moons dataset in order to see a non-linear decision boundary
     '''
-    data_vertical_train, data_vertical_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points = 500, split=True)
+    data_vertical_train, data_vertical_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points = 100, split=True)
 
     ### Next, generate correct classification parameters for dataset (perfect classification):
     '''
@@ -40,8 +40,10 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
 
     qc_name = '1q-qvm'
     qc = get_qc(qc_name)
-    num_shots = 1024
-    qubits = qc.qubits()
+    num_shots = 100
+    device_qubits = qc.qubits()
+    classifier_qubits = device_qubits
+    n_layers = 1
     init_params = np.random.rand(3)
     if encoding.lower() == 'denseangle_param':
         encoding_choice = 'denseangle_param'
@@ -59,7 +61,8 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
         '''
         params, result_unitary_param = train_classifier(qc, num_shots, init_params, encoding_choice, init_encoding_params, optimiser, data_vertical_train, true_labels_train)
         print('The optimised parameters are:', result_unitary_param.x)
-        print('These give a cost of:', ClassificationCircuit(qubits, data_vertical_train).build_classifier(result_unitary_param.x, encoding_choice, init_encoding_params, num_shots, qc, true_labels_train))
+        print('These give a cost of:', ClassificationCircuit(classifier_qubits, data_vertical_train).build_classifier(result_unitary_param.x, n_layers, \
+                                                                            encoding_choice, init_encoding_params, num_shots, qc, true_labels_train))
         ideal_params_vertical = result_unitary_param.x
     else:
         ### Define Ideal parameters for trained model learned from previous. Simple model can acheieve classification of about 90 %
@@ -95,11 +98,13 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
     
     if ideal:
 
-        predicted_labels_test = ClassificationCircuit(qubits, data_vertical_test).make_predictions(ideal_params_vertical, encoding_choice, init_encoding_params, num_shots, qc)
+        predicted_labels_test = ClassificationCircuit(classifier_qubits, data_vertical_test).make_predictions(ideal_params_vertical,  n_layers, \
+                                                                                        encoding_choice, init_encoding_params, num_shots, qc)
         plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
         scatter(data_vertical_test, true_labels_test, predicted_labels_test, **plot_params)
 
-        predicted_labels_grid = ClassificationCircuit(qubits, data_grid).make_predictions(ideal_params_vertical, encoding_choice, init_encoding_params, num_shots, qc)
+        predicted_labels_grid = ClassificationCircuit(classifier_qubits, data_grid).make_predictions(ideal_params_vertical, n_layers,\
+                                                                             encoding_choice, init_encoding_params, num_shots, qc)
         plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
         scatter(data_grid, predicted_labels_grid, **plot_params)
         plt.show()
@@ -129,11 +134,15 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
         '''
         # Generate Grid of datapoints to determine and visualise ideal decision boundary WITH noise added
         '''
-        predicted_labels_test_noise = ClassificationCircuit(qubits, data_vertical_test, noise_choice, noise_values).make_predictions(ideal_params_vertical, encoding_choice, init_encoding_params, num_shots, qc)
+        predicted_labels_test_noise = ClassificationCircuit(classifier_qubits, data_vertical_test,\
+                     noise_choice, noise_values).make_predictions(ideal_params_vertical, n_layers, encoding_choice, init_encoding_params,\
+                                                                 num_shots, qc)
         plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
         scatter(data_vertical_test, true_labels_test, predicted_labels_test_noise, **plot_params)
 
-        predicted_labels_grid_noise = ClassificationCircuit(qubits, data_grid, noise_choice, noise_values).make_predictions(ideal_params_vertical, encoding_choice, init_encoding_params, num_shots, qc)
+        predicted_labels_grid_noise = ClassificationCircuit(classifier_qubits, data_grid, \
+                                                            noise_choice, noise_values).make_predictions(ideal_params_vertical, n_layers, \
+                                                            encoding_choice, init_encoding_params, num_shots, qc)
 
         plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
         scatter(data_grid, predicted_labels_grid_noise, **plot_params)
@@ -181,8 +190,9 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
 
         points_noise_inc = []
 
-        data_vertical_train, data_vertical_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points = num_points, split=True)
-        interval = 0.1
+        data_vertical_train, data_vertical_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary',\
+                                                                                                     num_points = num_points, split=True)
+        interval = 0.02
         encoding_choice = 'denseangle_param'
         theta = np.arange(0, 2*np.pi, interval)
         phi = np.arange(0, 2*np.pi, interval)
@@ -198,14 +208,14 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
                 temp_encoding_params = [t, p]
 
                 # Classification of encoding parameters *without* noise
-                ideal_predictions, test_acc_ideal[ii,jj]  = generate_noisy_classification(ideal_params, None, None,\
+                ideal_predictions, test_acc_ideal[ii,jj]  = generate_noisy_classification(ideal_params, 1, None, None,\
                                                                                                     encoding_choice, temp_encoding_params, qc,\
-                                                                                                    num_shots, data_vertical_test, true_labels_test)
+                                                                                                    classifier_qubits, num_shots, data_vertical_test, true_labels_test)
             
                 # Learned encoding parameters *with* noise
-                noisy_predictions, test_acc_noise[ii,jj]  = generate_noisy_classification(ideal_params, noise_choice, noise_values,\
+                noisy_predictions, test_acc_noise[ii,jj]  = generate_noisy_classification(ideal_params, 1, noise_choice, noise_values,\
                                                                                                     encoding_choice, temp_encoding_params, qc,\
-                                                                                                    num_shots, data_vertical_test, true_labels_test)
+                                                                                                    classifier_qubits, num_shots, data_vertical_test, true_labels_test)
                 # Number expected to be robust under analytic condition
                 correct_classification_labels, number_robust[ii, jj] = compute_analytic_misclassifed_condition(data_vertical_test, ideal_params_vertical,\
                                                                                                                 encoding_choice, temp_encoding_params,\
@@ -291,4 +301,4 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
         plt.show()
 
 if __name__ == "__main__":
-    main(train=False, encoding='denseangle_param', ideal=False, noise=False, analytic=False, compare=True)
+    main(train=False, encoding='denseangle_param', ideal=False, noise=True, analytic=False, compare=False)

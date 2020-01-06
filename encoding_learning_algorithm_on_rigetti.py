@@ -42,13 +42,14 @@ def main(train=False, retrain=False, data_choice='moons', qc_name='1q-qvm', simu
 
     data_train, true_labels_train   = remove_zeros(data_train, true_labels_train)
     data_test, true_labels_test     = remove_zeros(data_test, true_labels_test)
+    encodings = [ 'superdenseangle_param' ]
 
-    encodings = [ 'denseangle_param','superdenseangle_param', 'wavefunction_param' ]
+    # encodings = [ 'denseangle_param','superdenseangle_param', 'wavefunction_param' ]
 
     minimal_costs, ideal_costs, noisy_costs, noisy_costs_uncorrected = [np.ones(len(encodings)) for _ in range(4)]
 
     qc = get_qc(qc_name, as_qvm=simulated)
-    num_shots = 500
+    num_shots = 512
     device_qubits = qc.qubits()
 
     classifier_qubits = [device_qubits[0]]
@@ -105,11 +106,11 @@ def main(train=False, retrain=False, data_choice='moons', qc_name='1q-qvm', simu
                 elif    encoding_choice.lower() == 'wavefunction':                  ideal_params.append(init_params)
                 elif    encoding_choice.lower() == 'wavefunction_param':            ideal_params.append(init_params)
 
-        ideal_costs[ii] = ClassificationCircuit(classifier_qubits, data_test).build_classifier(ideal_params[ii],  n_layers,\
-                                                                                            encoding_choice, init_encoding_params[ii],\
-                                                                                            num_shots, qc, true_labels_test)
+        # ideal_costs[ii] = ClassificationCircuit(classifier_qubits, data_test).build_classifier(ideal_params[ii],  n_layers,\
+        #                                                                                     encoding_choice, init_encoding_params[ii],\
+        #                                                                                     num_shots, qc, true_labels_test)
         
-        print('In the ideal case, the cost is:', ideal_costs[ii])
+        # print('In the ideal case, the cost is:', ideal_costs[ii])
         predicted_labels_ideal = ClassificationCircuit(classifier_qubits, data_test).make_predictions(ideal_params[ii], n_layers,  encoding_choice, init_encoding_params[ii], num_shots, qc)
         
         noise_choice = 'decoherence_symmetric_ro'
@@ -118,49 +119,49 @@ def main(train=False, retrain=False, data_choice='moons', qc_name='1q-qvm', simu
         else:
             noise_values = get_device_noise_params(qc_name)
 
-        noisy_costs_uncorrected[ii] = ClassificationCircuit(classifier_qubits, data_test, noise_choice, noise_values).build_classifier(ideal_params[ii],  n_layers, \
-                                                                                                                                        encoding_choice, init_encoding_params[ii],\
-                                                                                                                                        num_shots, qc, true_labels_test) 
-        print('\nWithout encoding training, the noisy cost is:', noisy_costs_uncorrected[ii])
+        # noisy_costs_uncorrected[ii] = ClassificationCircuit(classifier_qubits, data_test, noise_choice, noise_values).build_classifier(ideal_params[ii],  n_layers, \
+        #                                                                                                                                 encoding_choice, init_encoding_params[ii],\
+        #                                                                                                                                 num_shots, qc, true_labels_test) 
+        # print('\nWithout encoding training, the noisy cost is:', noisy_costs_uncorrected[ii])
 
-        noisy_predictions, number_classified_same = generate_noisy_classification(ideal_params[ii], n_layers,  noise_choice, noise_values, \
-                                                                                    encoding_choice, init_encoding_params[ii],\
-                                                                                    qc,  classifier_qubits, num_shots, data_test, predicted_labels_ideal)
+        # noisy_predictions, number_classified_same = generate_noisy_classification(ideal_params[ii], n_layers,  noise_choice, noise_values, \
+        #                                                                             encoding_choice, init_encoding_params[ii],\
+        #                                                                             qc,  classifier_qubits, num_shots, data_test, predicted_labels_ideal)
 
-        print('The proportion classified differently after noise is:', 1 - number_classified_same)
+        # print('The proportion classified differently after noise is:', 1 - number_classified_same)
 
-        data_choice = 'full_vertical_boundary'
+        # data_choice = 'full_vertical_boundary'
 
-        num__grid_points = 500
-        data_grid, grid_true_labels = generate_data(data_choice, num__grid_points)
-        data_grid, grid_true_labels = remove_zeros(data_grid, grid_true_labels)
+        # num__grid_points = 500
+        # data_grid, grid_true_labels = generate_data(data_choice, num__grid_points)
+        # data_grid, grid_true_labels = remove_zeros(data_grid, grid_true_labels)
 
-        ### IDEAL
-        predicted_labels_test = ClassificationCircuit(classifier_qubits, data_test).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc)
-        plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
-        scatter(data_test, true_labels_test, predicted_labels_test, **plot_params)
+        # ### IDEAL
+        # predicted_labels_test = ClassificationCircuit(classifier_qubits, data_test).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc)
+        # plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
+        # scatter(data_test, true_labels_test, predicted_labels_test, **plot_params)
 
-        predicted_labels_grid = ClassificationCircuit(classifier_qubits, data_grid).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc)
-        plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
-        scatter(data_grid, predicted_labels_grid, **plot_params)
-        plt.show()
+        # predicted_labels_grid = ClassificationCircuit(classifier_qubits, data_grid).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc)
+        # plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
+        # scatter(data_grid, predicted_labels_grid, **plot_params)
+        # plt.show()
 
-         ## Overlay decision boundary
-        '''
-        # Generate Grid of datapoints to determine and visualise ideal decision boundary WITH noise added
-        '''
-        predicted_labels_test_noise = ClassificationCircuit(classifier_qubits, data_test, noise_choice, noise_values).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc)
-        plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
-        scatter(data_test, true_labels_test, predicted_labels_test_noise, **plot_params)
+        #  ## Overlay decision boundary
+        # '''
+        # # Generate Grid of datapoints to determine and visualise ideal decision boundary WITH noise added
+        # '''
+        # predicted_labels_test_noise = ClassificationCircuit(classifier_qubits, data_test, noise_choice, noise_values).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc)
+        # plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
+        # scatter(data_test, true_labels_test, predicted_labels_test_noise, **plot_params)
 
-        predicted_labels_grid_noise = ClassificationCircuit(classifier_qubits, data_grid, noise_choice, noise_values).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc)
+        # predicted_labels_grid_noise = ClassificationCircuit(classifier_qubits, data_grid, noise_choice, noise_values).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, qc)
 
-        plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
-        scatter(data_grid, predicted_labels_grid_noise, **plot_params)
-        plt.show()
+        # plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
+        # scatter(data_grid, predicted_labels_grid_noise, **plot_params)
+        # plt.show()
 
         if retrain:
-            if encoding_choice.lower() == 'wavefunction_param': optimiser = 'L-BFGS-B' 
+            if encoding_choice.lower() == 'wavefunction_param': optimiser = 'L-BFGS-B' # Need a solver with bounds for generalized wf encoding
             else:                                               optimiser = 'Powell' 
 
             encoding_params, result_encoding_param = train_classifier_encoding(qc, classifier_qubits, noise_choice, noise_values, num_shots,\
@@ -171,27 +172,28 @@ def main(train=False, retrain=False, data_choice='moons', qc_name='1q-qvm', simu
             ideal_encoding_params.append(result_encoding_param.x)
   
         else:
-            if data_choice.lower() == 'moons':
-                if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append([])
-                elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append([])
-                elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append([])
+            if qc_name.lower() == 'aspen-4-2q-a-qvm': # Trained encoding params for this chip with simulated noise model
+                if data_choice.lower() == 'moons':
+                    if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append([])
+                    elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append([])
+                    elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append([])
 
-            elif data_choice.lower() == 'random_vertical_boundary':
-                if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append([])
-                elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append([])
-                elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append([])
+                elif data_choice.lower() == 'random_vertical_boundary':
+                    if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append([np.pi, 2*np.pi])
+                    elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append([])
+                    elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append([])
 
-            elif data_choice.lower() == 'random_diagonal_boundary':
-                if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append([])
-                elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append([])
-                elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append([])
+                elif data_choice.lower() == 'random_diagonal_boundary':
+                    if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append([])
+                    elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append([])
+                    elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append([])
 
-            else:
-                print('THIS DATASET HAS NOT BEEN TRAINED FOR')
-                if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append(init_encoding_params[ii])
-                elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append(init_encoding_params[ii])
-                elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append(init_encoding_params[ii])
-        
+                else:
+                    print('THIS DATASET HAS NOT BEEN TRAINED FOR')
+                    if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append(init_encoding_params[ii])
+                    elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append(init_encoding_params[ii])
+                    elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append(init_encoding_params[ii])
+            
         noisy_costs[ii] = ClassificationCircuit(classifier_qubits, data_test, noise_choice, noise_values).build_classifier(ideal_params[ii], n_layers, \
                                                                                                         encoding_choice, ideal_encoding_params[ii],\
                                                                                                         num_shots, qc, true_labels_test) 
@@ -228,13 +230,15 @@ if __name__ == "__main__":
         qc_name='Aspen-4-2Q-A'
         simulated = True
         
-        output = main(train=False, retrain=False, data_choice=data_choice, qc_name=qc_name, simulated=simulated)
+        output = main(train=False, retrain=True, data_choice=data_choice, qc_name=qc_name, simulated=simulated)
         if simulated:
             qc_name = qc_name + '-qvm'
     
         file_name = '%s/Data_choice_%s/Run_%i' % (qc_name, data_choice, run)
         make_dir(file_name)
         
+        ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs  = [[] for _ in range(6)]
+
         ideal_params.append(output[1])
         init_encoding_params.append(output[2]) 
         ideal_encoding_params.append(output[3]) 

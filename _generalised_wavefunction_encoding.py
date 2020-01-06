@@ -16,6 +16,7 @@ from nisqai.data._cdata import CData, LabeledCData
 
 from numpy import array, cos, sin, exp, dot, identity, isclose, sqrt
 from numpy import identity, delete, linalg, matmul, random, log2, ceil, ndarray # functions yousif used
+from numpy import kron
 from pyquil import Program
 
 from pyquil.quil import DefGate
@@ -29,12 +30,18 @@ class GeneralisedWaveFunctionEncoding:
 
     Warning: Not NISQ!
     """
-    def __init__(self, cdata, encoding_param, auto_pad=False):
+    def __init__(self, cdata, encoding_param, qc, auto_pad=False):
         """Initialize a WaveFunctionEncoding.
 
         Args:
             cdata : Union[CData, LabeledCData]
                 Classical data to encode in a wavefunction. For each data vector |x>,
+
+            encoding_param: list[floats]
+                Encoding parameter for Generalised wavefunction encoding,
+            
+            qc : QuantumComputer
+                PyQuil QuantumComputer object to run circuit onto,
 
             auto_pad : bool
                 If True, appends zero elements to the data feature vectors until the dimension is a power of two.
@@ -65,6 +72,12 @@ class GeneralisedWaveFunctionEncoding:
 
         # Single encoding parameter
         self.encoding_param = encoding_param
+
+        # Quantum Computer object to write circuit onto
+        self.qc = qc
+
+        # Available qubits on Rigetti chip
+        self.device_qubits = self.qc.qubits() # List of qubits available on chip
 
         # Write each circuit
         for ind in range(len(self.circuits)):
@@ -102,7 +115,7 @@ class GeneralisedWaveFunctionEncoding:
         U_gate = gate.get_constructor()
 
         # Get the qubit indices
-        qubit_indices = range(self.num_qubits)
+        qubit_indices = self.device_qubits # NOTE: Brian changed to work with chip indices not range(self.num_qubits)
 
         # Return the program
         return Program(gate, U_gate(*tuple(qubit_indices)))
@@ -118,23 +131,38 @@ class GeneralisedWaveFunctionEncoding:
         """
         x = self.data.data[feature_vector_index]
         # Generalised wavefunction encoding with parameter.
-        x = array([sqrt( 1 + self.encoding_param[0] * x[1]**2) * x[0], sqrt( 1 - self.encoding_param[0] * x[0]**2) * x[1]]) / linalg.norm(x)
-        
+
+        # For a multiqubit *product* qubit encoding, each encoded qubit must be normalised with the 
+        # L2 norm of the encoded features * in that qubit only*
+        if len(x) == 2:
+            x_1 = array([sqrt( 1 + self.encoding_param[0] * x[1]**2) * x[0], \
+                sqrt( 1 - self.encoding_param[0] * x[0]**2) * x[1]]) / linalg.norm(array([x[0], x[1]]))
+        elif len(x) == 4:
+            x_1 = array([sqrt( 1 + self.encoding_param[0] * x[1]**2) * x[0], \
+                sqrt( 1 - self.encoding_param[0] * x[0]**2) * x[1]]) / linalg.norm(array([x[0], x[1]]))
+
+            x_2 = array([sqrt( 1 + self.encoding_param[0] * x[3]**2) * x[2], \
+                sqrt( 1 - self.encoding_param[0] * x[2]**2) * x[3]]) / linalg.norm(array([x[2], x[3]]))
+
         # We'll use Gram-Schmidt to compute 2^{|x|} - 1 orthogonal rows to x,
         # starting with x and standard basis vectors.
         # If rows a square matrix form an orthonormal basis,
         # columns will too. Thus we'll have a unitary matrix.
 
-        standard_basis = identity(len(x))
-
+        # standard_basis = identity(len(x)) # For an amplitude wavefunction encoding.
+        standard_basis = identity(len(x_1)) # For an *product* (qubit) wavefunction encoding.
         # Delete a row so you only have 2^{|x|} - 1 orthogonal vectors
         # But first, make sure vector input is not in span of one of
         # the vectors used for Gram-Schmidt. (Then starting set won't be a basis.)
         #
         # TODO: This method is janky and should be replaced.
+
+        # For now, just implement this by repetition TODO: REPLACE! 
+        # Produces a unitary which is the tensor product of each unitary for two qubits
+
         flag = 0
-        for i in range(len(x)):
-            if abs(1 - abs(dot(x.conj(), standard_basis[i]))) < 1e-2:
+        for i in range(len(x_1)):
+            if abs(1 - abs(dot(x_1.conj(), standard_basis[i]))) < 1e-2:
                 standard_basis = delete(standard_basis, i, 0)
                 flag = 1
                 break
@@ -142,8 +170,8 @@ class GeneralisedWaveFunctionEncoding:
             standard_basis = delete(standard_basis, 0, 0)
 
         U = []
-        a = x
-        for k in range(len(x)):
+        a = x_1
+        for k in range(len(x_1)):
             for i in range(k):
                 a += dot(array(U[i]).conj(), standard_basis[k - 1]) * array(U[i])
             if k != 0:
@@ -151,8 +179,35 @@ class GeneralisedWaveFunctionEncoding:
             a = a / linalg.norm(a)
             U.append(a)
             a = 0
+        U = array(U).T
+        if len(x) == 4:
+            
+            standard_basis = identity(len(x_2)) # Reset standard basis
 
-        return array(U).T
+            # Repeat for second unitary and append to first
+            flag = 0
+            for i in range(len(x_2)):
+                if abs(1 - abs(dot(x_2.conj(), standard_basis[i]))) < 1e-2:
+                    standard_basis = delete(standard_basis, i, 0)
+                    flag = 1
+                    break
+            if flag == 0:
+                standard_basis = delete(standard_basis, 0, 0)
+            
+            U_2 = []
+            a = x_2
+            for k in range(len(x_1)):
+                for i in range(k):
+                    a += dot(array(U_2[i]).conj(), standard_basis[k - 1]) * array(U_2[i])
+                if k != 0:
+                    a = standard_basis[k - 1] - a
+                a = a / linalg.norm(a)
+                U_2.append(a)
+                a = 0
+            U_2 = array(U_2).T
+            U = kron(U, U_2)
+
+        return U
 
     def __getitem__(self, ind):
         """Returns the circuit for the data point indexed by ind."""
