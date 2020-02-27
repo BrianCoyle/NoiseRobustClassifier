@@ -168,7 +168,7 @@ def generate_data(data_choice, num_points, random_seed=None, split=False, split_
             labels = np.array(labels)
 
             train_data, test_data, train_true_labels, test_true_labels = train_test_split(data, labels, test_size=1-split_ratio)
-
+        else: raise NotImplementedError('Dataset does not exist')
         return train_data, test_data, train_true_labels, test_true_labels
     else:
         if data_choice.lower() == 'random_vertical_boundary':

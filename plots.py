@@ -3,7 +3,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from matplotlib import cm
 
-plt.rcParams.update({"font.size": 12, "font.serif": "Computer Modern Roman"})
+plt.rcParams.update({"font.size": 14, "font.serif": "Computer Modern Roman"})
 
 
 import numpy as np
@@ -104,9 +104,13 @@ def plot_number_misclassified_meas_noise_3d(ideal_params, num_shots, encoding_ch
     points_noise_inc = []
     
     data_train, data_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points=500, split=True)
+    n_layers = 1
+    device_qubits = qc.qubits()
 
-    noise_strengths00 = np.arange(0, 1, 0.05)
-    noise_strengths11 = np.arange(0, 1, 0.05)
+    classifier_qubits = [device_qubits[0]]
+
+    noise_strengths00 = np.arange(0, 1, 0.02)
+    noise_strengths11 = np.arange(0, 1, 0.02)
     X, Y = np.meshgrid(noise_strengths00, noise_strengths11)
 
     noise_type = "Measurement"
@@ -114,25 +118,36 @@ def plot_number_misclassified_meas_noise_3d(ideal_params, num_shots, encoding_ch
     for ii, p00 in enumerate(noise_strengths00):
         for jj, p11 in enumerate(noise_strengths11):
             p = [p00, p11] # measurement noise for both outcomes
-            noisy_predictions, proportion_correctly_classified[ii,jj]  = generate_noisy_classification(ideal_params, noise_type, p, encoding_choice, encoding_params, qc, num_shots, data_test, true_labels_test)
+    
+            noisy_predictions, proportion_correctly_classified[ii,jj]  = generate_noisy_classification(ideal_params, n_layers, noise_type, p,\
+                                                                                                        encoding_choice, encoding_params, qc, classifier_qubits,\
+                                                                                                        num_shots, data_test, true_labels_test)
             print('For parameters: ', p00, p11, ', the proportion misclassified is:', 1 - proportion_correctly_classified[ii,jj])
 
 
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    
+    ## Uncomment the below if 3d image is required
+    # fig = plt.figure()
+    # ax = fig.gca(projection='3d')
 
-    surf = ax.plot_surface(X, Y, 100*(1 - proportion_correctly_classified), cmap=cm.winter_r,
-                       linewidth=0, antialiased=False)
+    # surf = ax.plot_surface(X, Y, 100*(1 - proportion_correctly_classified), cmap=cm.winter_r,
+    #                    linewidth=0, antialiased=False)
+    
+    # ax.set_xlabel(r'$p_{00}$')
+    # ax.set_ylabel(r'$p_{11}$')
+    # ax.set_zlabel('% Misclassified')
+    # plt.colorbar(surf)
+    # ax.set_zlim(-0.01, 100.01)
+    # plt.savefig('meas_noise.pdf')
 
-    ax.set_zlim(-0.01, 100.01)
-  
+    plt.imshow(proportion_correctly_classified, cmap=cm.coolwarm_r, extent=[0,1,0,1], origin=(0,0))
 
-    ax.set_xlabel(r'$p_{00}$')
-    ax.set_ylabel(r'$p_{11}$')
-    ax.set_zlabel('% Misclassified')
+    plt.xlabel(r'$p_{00}$')
+    plt.ylabel(r'$p_{11}$')
 
-    fig.colorbar(surf)
-    plt.savefig('meas_noise.pdf')
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel('% Classified Correctly')
+    plt.savefig('meas_noise_flat.pdf')
     plt.show()
 
     return
@@ -142,9 +157,14 @@ def plot_number_misclassified_pauli_noise_3d(ideal_params, num_shots, encoding_c
     points_noise_inc = []
     
     data_train, data_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points=500, split=True)
+    
+    n_layers = 1
+    device_qubits = qc.qubits()
 
-    noise_strengthsX = np.arange(0, 0.5, 0.05)
-    noise_strengthsY = np.arange(0, 0.5, 0.05)
+    classifier_qubits = [device_qubits[0]]
+
+    noise_strengthsX = np.arange(0, 0.5, 0.01)
+    noise_strengthsY = np.arange(0, 0.5, 0.01)
     X, Y = np.meshgrid(noise_strengthsX, noise_strengthsY)
 
     noise_type = "pauli_before_measurement"
@@ -152,26 +172,36 @@ def plot_number_misclassified_pauli_noise_3d(ideal_params, num_shots, encoding_c
     for ii, pX in enumerate(noise_strengthsX):
         for jj, pY in enumerate(noise_strengthsY):
             p = [1-pX-pY, pX, pY, 0] # pauli X and Y noise
-            noisy_predictions, proportion_correctly_classified[ii,jj]  = generate_noisy_classification(ideal_params, noise_type, p, encoding_choice, encoding_params, qc, num_shots,  data_test, true_labels_test)
+            noisy_predictions, proportion_correctly_classified[ii,jj]  = generate_noisy_classification(ideal_params, n_layers,
+                                                                                                    noise_type, p, encoding_choice, encoding_params,\
+                                                                                                    qc, classifier_qubits, num_shots,\
+                                                                                                    data_test, true_labels_test)
             print('For parameters: ', pX, pY, ', the proportion misclassified is:', 100*(1 - proportion_correctly_classified[ii,jj]))
 
+    ### Uncomment the below 
+    # fig = plt.figure()
+    # ax = fig.gca(projection='3d')
 
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    # surf = ax.plot_surface(X, Y, 100*(1-proportion_correctly_classified), cmap=cm.winter_r,
+    #                    linewidth=0, antialiased=False)
 
-    surf = ax.plot_surface(X, Y, 100*(1-proportion_correctly_classified), cmap=cm.winter_r,
-                       linewidth=0, antialiased=False)
+    # ax.set_zlim(-0.01, 100.01)
 
-    ax.set_zlim(-0.01, 100.01)
-
-    ax.set_xlabel(r'$p_{X}$')
-    ax.set_ylabel(r'$p_{Y}$')
-    ax.set_zlabel('% Misclassified')
+    # ax.set_xlabel(r'$p_{X}$')
+    # ax.set_ylabel(r'$p_{Y}$')
+    # ax.set_zlabel('% Misclassified')
+    # fig.colorbar(surf)
     
-    plt.savefig('pauli_noise.pdf')
+    # plt.savefig('pauli_noise.pdf')
+    plt.imshow(np.rot90(proportion_correctly_classified), cmap=cm.coolwarm_r, extent=[0,0.5,0,0.5])
 
-    fig.colorbar(surf)
-    # plt.show()
+    plt.xlabel(r'$p_{X}$')
+    plt.ylabel(r'$p_{Y}$')
+
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel('% Classified Correctly')
+    plt.savefig('pauli_noise_flat.pdf')
+    plt.show()
 
     return
 
@@ -208,7 +238,8 @@ def scatter(data, labels=None, predictions=None, show=False, **kwargs):
     if kwargs is not None and 'linewidth' in kwargs: LINEWIDTH = kwargs['linewidth']
     else: LINEWIDTH = 2
 
-    plt.rcParams.update({"font.size": 16, "font.family": "serif", "font.weight": "bold"})
+    # plt.rcParams.update({"font.size": 16, "font.family": "serif", "font.weight": "bold"})
+    plt.rcParams.update({"font.size": 12, "font.serif": "Computer Modern Roman"})
 
     # Make sure we have the correct input type
     if not isinstance(data, ndarray):
@@ -265,54 +296,162 @@ def scatter(data, labels=None, predictions=None, show=False, **kwargs):
 
     # Put the score on the title
     if predictions is not None and labels is not None:
-        num_wrong = sum(abs(labels - predictions))
-        percent_correct = 100.0 - num_wrong / len(labels) * 100.0
-        plt.title("Test Accuracy: %0.3f" % percent_correct + "%")
+        if type(predictions) is not np.array or type(labels) is not np.array:
+            num_wrong = 0
+            for ii, pred_label in enumerate(predictions):
+                num_wrong += abs( labels[ii] - pred_label )
+        else:
+            num_wrong = sum(abs(labels - predictions))
+            percent_correct = 100.0 - num_wrong / len(labels) * 100.0
+            plt.title("Test Accuracy: %0.3f" % percent_correct + "%")
     
     if show: plt.show()
+
     
-def plot_encoding_algo(datasets, encodings, ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs):
+def plot_encoding_algo(datasets, encodings, ideal_params, init_encoding_params, ideal_encoding_params, costs):
 
-    fig, ax = plt.subplots(1, len(datasets), sharex=True)
-    x = np.arange(len(encodings))
+    fig, ax = plt.subplots(1, len(datasets), sharex=True, sharey=False)
+    x = np.arange(len(encodings)) / 10
 
-    encoding_labels = ['Dense Angle', 'SuperDense Angle', 'Wavefunction']
+    encoding_labels = [r'$\mathsf{DAE}$', r'$\mathsf{WF}$', r'$\mathsf{SDAE}$']
     legend_labels = ['Ideal', 'Untrained Encoding + Noise', 'Trained Encoding + Noise']
 
+    [ideal_costs_mean, ideal_costs_std,\
+    noisy_costs_mean, noisy_costs_std,\
+    noisy_costs_uncorrected_mean, noisy_costs_uncorrected_std] = costs
+    data_names = []
+    colors = ['blue', 'green', 'orange']
     for ii, data in enumerate(datasets):
-        ax[ii].scatter(x, ideal_costs[ii],              marker='x', linewidth=2, s=100, alpha=1)
-        ax[ii].scatter(x, noisy_costs_uncorrected[ii],  marker='o',linewidth=2, s=100, alpha=1)
-        ax[ii].scatter(x, noisy_costs[ii],              marker='^',linewidth=2, s=100, alpha=1)
-        ax[ii].set_title(data)
+        print('For dataset', data, 'the ideal mean is:', ideal_costs_mean[ii])
+        print('For dataset', data, 'the ideal std is:', ideal_costs_std[ii])
+        
+        print('For dataset', data, 'the uncorrected mean is:', noisy_costs_uncorrected_mean[ii])
+        print('For dataset', data, 'the uncorrected std is:', noisy_costs_uncorrected_std[ii])
+
+        print('For dataset', data, 'the corrected noisy mean is:', noisy_costs_mean[ii])
+        print('For dataset', data, 'the corrected noisy std is:', noisy_costs_std[ii])
+
+        ax[ii].scatter(x, ideal_costs_mean[ii], s = 150 , marker = "x", color='blue')
+        ax[ii].scatter(x, noisy_costs_uncorrected_mean[ii], s = 150 , marker = "^", color='green')
+        ax[ii].scatter(x, noisy_costs_mean[ii], s = 150 , marker = "o", color='orange')
+
+        ax[ii].errorbar(x, ideal_costs_mean[ii], yerr=ideal_costs_std[ii], fmt='x', linewidth=3, capsize=10, capthick=3, color='blue')
+        ax[ii].errorbar(x, noisy_costs_uncorrected_mean[ii], yerr=noisy_costs_uncorrected_std[ii], fmt='^', linewidth=3, capsize=10, capthick=3, color='green')
+        ax[ii].errorbar(x, noisy_costs_mean[ii], yerr=noisy_costs_std[ii], fmt='o', linewidth=3, capsize=10, capthick=3, color='orange')
+
+        if data.lower() == 'moons':
+            data_names.append('moons')
+        elif data.lower() == 'random_vertical_boundary':
+            data_names.append('vertical')
+        elif data.lower() == 'random_diagonal_boundary':
+            data_names.append('diagonal')
         
         ax[ii].set_xticks(x)
-        ax[ii].set_xticklabels(encoding_labels,  rotation='30')
-
-        # Round parameters for plotting -> Produces str
+        ax[ii].set_xticklabels([],  rotation='30')
        
         ideal_params_rounded = [ ['%.2f' % param for param in encoding] for encoding in ideal_params[ii] ]
         init_encoding_params_rounded = [ ['%.2f' % param for param in encoding] for encoding in init_encoding_params[ii] ]
         ideal_encoding_params_rounded = [ ['%.2f' % param for param in encoding] for encoding in ideal_encoding_params[ii] ]
-        
-        for i, params in enumerate(init_encoding_params_rounded):
-            if i == len(init_encoding_params_rounded) - 1:  
-                ax[ii].annotate(params, (x[i], ideal_costs[ii][i]), textcoords="offset points", xytext=(-10,0), ha='right')
-                ax[ii].annotate(params, (x[i], noisy_costs_uncorrected[ii][i]), textcoords="offset points", xytext=(-10, 0), ha='right')
-            else:
-                ax[ii].annotate(params, (x[i], ideal_costs[ii][i]), textcoords="offset points", xytext=(10,0), ha='left')
-                ax[ii].annotate(params, (x[i], noisy_costs_uncorrected[ii][i]), textcoords="offset points", xytext=(10, 0), ha='left')
 
-        for i, params in enumerate(ideal_encoding_params_rounded):
-            if i == len(ideal_encoding_params_rounded)-1:
-                ax[ii].annotate(params, (x[i], noisy_costs[ii][i]), textcoords="offset points", xytext=(-10, 0), ha='right')
-            else:
-                ax[ii].annotate(params, (x[i], noisy_costs[ii][i]), textcoords="offset points", xytext=(10, 0), ha='left')
-
-    ax[0].set_ylabel('Cost')
-    ax[-1].legend(legend_labels)
+    # ax[-2].legend(legend_labels, loc='lower right')
     plt.show()
     return
 
+def fidelity_bound_plot(average_fidelity, encoding_params, noise_choice='amp_damp',show=False, num_points=50, num_qbs=1, legend=False): 
+
+    [encoding_params_dae, encoding_params_wf, encoding_params_sdae] =  encoding_params
+    if noise_choice.lower()== 'global_depolarizing':
+        noise_values_arr = np.linspace(0, 0.9, num=num_points, endpoint=True) # Cut off endpoint - misclassified due to numerical imprecision
+    else:
+        noise_values_arr = np.linspace(0, 1, num=num_points, endpoint=False)
+
+    [cost_diff_plot_dae, mixed_bound_plot_dae, avg_bound_plot_dae] = [np.zeros(len(noise_values_arr)) for _ in range(3)]
+    [cost_diff_plot_wf, mixed_bound_plot_wf, avg_bound_plot_wf] = [np.zeros(len(noise_values_arr)) for _ in range(3)]
+    [cost_diff_plot_sdae, mixed_bound_plot_sdae, avg_bound_plot_sdae] = [np.zeros(len(noise_values_arr)) for _ in range(3)]
+
+    for ii, noise_value in enumerate(noise_values_arr):
+        if num_qbs == 1:
+            noise_values = [ noise_value ]
+        elif num_qbs == 2:
+            if noise_choice.lower() == 'amp_damp':             noise_values = [ noise_value, noise_value ]
+            elif noise_choice.lower() == 'bit_flip':           noise_values = [ noise_value, noise_value ]
+            elif noise_choice.lower() == 'global_depolarizing':noise_values = noise_value 
+            elif noise_choice.lower() == 'dephasing':          noise_values = [ noise_value, noise_value ]
+
+        else: raise NotImplementedError('Only have 1 or 2 qubits')
+        cost_diff_plot_dae[ii], avg_bound_plot_dae[ii], mixed_bound_plot_dae[ii], _, _ = \
+            average_fidelity(encoding_choice='denseangle_param', encoding_params=encoding_params_dae, noise_choice=noise_choice, noise_values=noise_values)
+
+        cost_diff_plot_wf[ii], avg_bound_plot_wf[ii], mixed_bound_plot_wf[ii], _, _ = \
+            average_fidelity(encoding_choice='wavefunction_param', encoding_params=encoding_params_wf, noise_choice=noise_choice, noise_values=noise_values)
+        
+        cost_diff_plot_sdae[ii], avg_bound_plot_sdae[ii], mixed_bound_plot_sdae[ii], _, _ = \
+            average_fidelity(encoding_choice='superdenseangle_param', encoding_params=encoding_params_sdae, noise_choice=noise_choice, noise_values=noise_values)
+    
+    plt.plot(noise_values_arr, mixed_bound_plot_dae, '-o', color='blue', label= r'2$\sqrt{1-F(\rho_{{mix}}, \rho_{{mix}}^{{noise}})}$, DAE')
+    plt.plot(noise_values_arr, avg_bound_plot_dae, '-o', color='cornflowerblue', label= r'2 Avg$(\sqrt{1-F(\tilde{\rho}_{\mathbf{x}_i}, \mathcal{E}(\tilde{\rho}_{\mathbf{x}_i}))}$], DAE')
+    plt.plot(noise_values_arr, cost_diff_plot_dae, '--o', color='darkturquoise', label='Cost Function Error, DAE')
+    
+    plt.plot(noise_values_arr, mixed_bound_plot_wf, '-x',color='red',  label= r'2$\sqrt{1-F(\rho_{{mix}}, \rho_{{mix}}^{{noise}})}$, WF')
+    plt.plot(noise_values_arr, avg_bound_plot_wf, '-x', color='lightcoral', label= r'2 Avg$(\sqrt{1-F(\tilde{\rho}_{\mathbf{x}_i}, \mathcal{E}(\tilde{\rho}_{\mathbf{x}_i}))}$], WF')
+    plt.plot(noise_values_arr, cost_diff_plot_wf, '--x',color='magenta',  label='Cost Function Error, WF')
+
+    plt.plot(noise_values_arr, mixed_bound_plot_sdae, '-s',color='saddlebrown',  label= r'2$\sqrt{1-F(\rho_{{mix}}, \rho_{{mix}}^{{noise}})}$, SDAE')
+    plt.plot(noise_values_arr, avg_bound_plot_sdae, '-s', color='goldenrod', label= r'2 Avg$(\sqrt{1-F(\tilde{\rho}_{\mathbf{x}_i}, \mathcal{E}(\tilde{\rho}_{\mathbf{x}_i}))}$], SDAE')
+    plt.plot(noise_values_arr, cost_diff_plot_sdae, '--s', color='darkorange', label='Cost Function Error, SDAE')
+    if legend:
+        plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
+
+    if show:
+        plt.show()
+    return
+
+
+def fidelity_compare_plot(average_fidelity, encoding_params, noise_choice='amp_damp',show=False, num_points=50, num_qbs=1, legend=False): 
+
+    [encoding_params_dae, encoding_params_wf, encoding_params_sdae] =  encoding_params
+    if noise_choice.lower()== 'global_depolarizing':
+        noise_values_arr = np.linspace(0, 0.9, num=num_points, endpoint=True) # Cut off endpoint - misclassified due to numerical imprecision
+    else:
+        noise_values_arr = np.linspace(0, 1, num=num_points, endpoint=False)
+
+    [avg_fidelity_dae, avg_fidelity_mixed_dae] = [np.zeros(len(noise_values_arr)) for _ in range(2)]
+    [avg_fidelity_wf, avg_fidelity_mixed_wf] = [np.zeros(len(noise_values_arr)) for _ in range(2)]
+    [avg_fidelity_sdae, avg_fidelity_mixed_sdae] = [np.zeros(len(noise_values_arr)) for _ in range(2)]
+
+    for ii, noise_value in enumerate(noise_values_arr):
+        if num_qbs == 1:
+            noise_values = [ noise_value ]
+        elif num_qbs == 2:
+            if noise_choice.lower() == 'amp_damp':             noise_values = [ noise_value, noise_value ]
+            elif noise_choice.lower() == 'bit_flip':           noise_values = [ noise_value, noise_value ]
+            elif noise_choice.lower() == 'global_depolarizing':noise_values = noise_value 
+            elif noise_choice.lower() == 'dephasing':          noise_values = [ noise_value, noise_value ]
+        else: raise NotImplementedError('Only have 1 or 2 qubits')
+        _, _, _, avg_fidelity_dae[ii], avg_fidelity_mixed_dae[ii] = \
+            average_fidelity(encoding_choice='denseangle_param', encoding_params=encoding_params_dae, noise_choice=noise_choice, noise_values=noise_values)
+
+        _, _, _, avg_fidelity_wf[ii], avg_fidelity_mixed_wf[ii] = \
+            average_fidelity(encoding_choice='wavefunction_param', encoding_params=encoding_params_wf, noise_choice=noise_choice, noise_values=noise_values)
+        
+        _, _, _, avg_fidelity_sdae[ii], avg_fidelity_mixed_sdae[ii] = \
+            average_fidelity(encoding_choice='superdenseangle_param', encoding_params=encoding_params_sdae, noise_choice=noise_choice, noise_values=noise_values)
+    
+    plt.plot(noise_values_arr, avg_fidelity_dae, '-o',color='darkturquoise', label= r'Average Fidelity, DAE')
+    plt.plot(noise_values_arr, avg_fidelity_mixed_dae, '--o', color = 'blue', label= r'$F(\rho_{{mix}}, \rho_{{mix}}^{{noise}})}$, DAE')
+    
+    plt.plot(noise_values_arr, avg_fidelity_wf, '-x', color='magenta', label= r'Average Fidelity, WF')
+    plt.plot(noise_values_arr, avg_fidelity_mixed_wf, '--x', color='red', label= r'$F(\rho_{{mix}}, \rho_{{mix}}^{{noise}})}$, WF')
+
+    plt.plot(noise_values_arr, avg_fidelity_sdae, '-s', color='darkorange', label= r'Average Fidelity, SDAE')
+    plt.plot(noise_values_arr, avg_fidelity_mixed_sdae, '--s', color='saddlebrown', label= r'$F(\rho_{{mix}}, \rho_{{mix}}^{{noise}})}$, SDAE')
+    if legend:
+        plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
+
+    if show:
+        plt.show()
+    return
+    
 if __name__ == "__main__":
 
     """

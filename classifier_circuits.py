@@ -17,7 +17,6 @@ class NoisyCircuits():
             self._ideal_circuit()
         else:
             self.noise_params = noise_params
-            
             if   self.noise_model.lower() == "depolarizing_before_meas":    self._dephased_before_meas_circuit()
             elif self.noise_model.lower() == "pauli_before_measurement":    self._pauli_before_meas_circuit()
             elif self.noise_model.lower() == "decoherence_symmetric_ro":    
@@ -66,6 +65,7 @@ class NoisyCircuits():
             self.circuit += RZ(2*self.params.values[first_qubit_index][0][0], first_qubit_index)
             self.circuit += RY(2*self.params.values[first_qubit_index][0][1], first_qubit_index)
             self.circuit += RZ(2*self.params.values[first_qubit_index][0][2], first_qubit_index)
+
         elif len(self.classifier_qubits) == 2:
             # Arbitrary Two qubit unitary decompostions (up to a global phase) from 
             # G. Vidal and C.M. Dawson Phys. Rev. A 69, 010301(R) 
@@ -76,7 +76,8 @@ class NoisyCircuits():
                 self.circuit += RZ(2*self.params.values[qubit][0][0], qubit)
                 self.circuit += RY(2*self.params.values[qubit][0][1], qubit)
                 self.circuit += RZ(2*self.params.values[qubit][0][2], qubit)
-
+            
+            
             # Layer 2    
             self.circuit += CNOT(self.classifier_qubits[0], self.classifier_qubits[1])
             self.circuit += H(self.classifier_qubits[0])
@@ -90,22 +91,10 @@ class NoisyCircuits():
             
             # Layer 4
             self.circuit += CNOT(self.classifier_qubits[0], self.classifier_qubits[1])
-            
-            self.circuit += RZ(np.pi/2, self.classifier_qubits[0])
-
+    
             self.circuit += RZ(2*self.params.values[self.classifier_qubits[0]][3][0],  self.classifier_qubits[0])
             self.circuit += RY(2*self.params.values[self.classifier_qubits[0]][3][1],  self.classifier_qubits[0])
             self.circuit += RZ(2*self.params.values[self.classifier_qubits[0]][3][2],  self.classifier_qubits[0])
-
-            # # Layered circuit
-            # for layer in range(self.n_layers):  
-            #     # parameters should be an array of size n_device_qubits x n_layers x 3
-            #     for ii, qubit in enumerate(self.classifier_qubits):
-            #         self.circuit += RZ(2*self.params.values[ii][layer][0], qubit)
-            #         self.circuit += RY(2*self.params.values[ii][layer][1], qubit)
-            #         self.circuit += RZ(2*self.params.values[ii][layer][2], qubit)
-            #     self.circuit += CZ(self.classifier_qubits[0], self.classifier_qubits[1]) # Unparameterized entanglement gate
-
         return self.circuit  
 
     def nativize(self, qc):

@@ -39,18 +39,20 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
     data_train, true_labels_train   = remove_zeros(data_train, true_labels_train)
     data_test, true_labels_test     = remove_zeros(data_test, true_labels_test)
 
-    # encodings = [ 'denseangle_param','superdenseangle_param', 'wavefunction_param' ]
-    encodings = [  'superdenseangle_param']
+    encodings = [  'denseangle_param','wavefunction_param', 'superdenseangle_param' ]
+    # encodings = [  'wavefunction_param' ]
+# superdenseangle_param
     minimal_costs, ideal_costs, noisy_costs, noisy_costs_uncorrected = [np.ones(len(encodings)) for _ in range(4)]
 
-    qc_name = '1q-qvm'
-    qc = get_qc(qc_name)
-    num_shots = 1024
-    qubits = qc.qubits()
-    init_params = np.random.rand(3)
-    ideal_params = []
-    ideal_encoding_params = []
-    init_encoding_params = []
+    qc_name     = '1q-qvm'
+    n_layers    = 1
+    qc          = get_qc(qc_name)
+    num_shots   = 1024
+    classifier_qubits       = qc.qubits()
+    init_params             = np.random.rand(3)
+    ideal_params            = []
+    ideal_encoding_params   = []
+    init_encoding_params    = []
 
     for ii, encoding_choice in enumerate(encodings):
 
@@ -69,7 +71,7 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
             params, result_unitary_param = train_classifier(qc, num_shots, init_params, encoding_choice, init_encoding_params[ii], optimiser, data_train, true_labels_train)
 
             print('The optimised parameters are:', result_unitary_param.x)
-            print('These give a cost of:', ClassificationCircuit(qubits, data_train).build_classifier(result_unitary_param.x, encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_train))
+            print('These give a cost of:', ClassificationCircuit(classifier_qubits, data_train).build_classifier(result_unitary_param.x, encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_train))
             ideal_params.append(result_unitary_param.x)
         else:
 
@@ -98,15 +100,22 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
                 elif    encoding_choice.lower() == 'wavefunction':                  ideal_params.append(init_params)
                 elif    encoding_choice.lower() == 'wavefunction_param':            ideal_params.append(init_params)
 
-        ideal_costs[ii] = ClassificationCircuit(qubits, data_test).build_classifier(ideal_params[ii], encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_test)
+        ideal_costs[ii] = ClassificationCircuit(classifier_qubits, data_test, qc).build_classifier(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots, true_labels_test)
         
         print('In the ideal case, the cost is:', ideal_costs[ii])
-        predicted_labels_ideal = ClassificationCircuit(qubits, data_test).make_predictions(ideal_params[ii], encoding_choice, init_encoding_params[ii], num_shots, qc)
         
-        noisy_costs_uncorrected[ii] = ClassificationCircuit(qubits, data_test, noise_choice, noise_values).build_classifier(ideal_params[ii], encoding_choice, init_encoding_params[ii], num_shots, qc, true_labels_test) 
+        predicted_labels_ideal = ClassificationCircuit(classifier_qubits, data_test, qc).make_predictions(ideal_params[ii], n_layers, encoding_choice, init_encoding_params[ii], num_shots)
+        
+        noisy_costs_uncorrected[ii] = ClassificationCircuit(classifier_qubits, data_test, qc, noise_choice, noise_values).build_classifier(ideal_params[ii], n_layers,\
+                                                                                                                            encoding_choice, init_encoding_params[ii],\
+                                                                                                                            num_shots, true_labels_test) 
         print('\nWithout encoding training, the noisy cost is:', noisy_costs_uncorrected[ii])
 
-        noisy_predictions, number_classified_same = generate_noisy_classification(ideal_params[ii], noise_choice, noise_values, encoding_choice, init_encoding_params[ii], qc, num_shots, data_test, predicted_labels_ideal)
+
+        noisy_predictions, number_classified_same = generate_noisy_classification(ideal_params[ii], n_layers, noise_choice, noise_values, \
+                                                                                    encoding_choice, init_encoding_params[ii],\
+                                                                                    qc, classifier_qubits, num_shots, data_test, predicted_labels_ideal)
+
         print('The proportion classified differently after noise is:', 1 - number_classified_same)
 
     
@@ -126,7 +135,7 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
 
             elif data_choice.lower() == 'random_vertical_boundary':
                 if      encoding_choice.lower() == 'denseangle_param': ideal_encoding_params.append([2.26042559, 8.99138928])
-                elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append([3.1786475  8.36712745])
+                elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append([3.1786475,  8.36712745])
                 elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append([0.01503151])
 
             elif data_choice.lower() == 'random_diagonal_boundary':
@@ -140,11 +149,15 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
                 elif    encoding_choice.lower() == 'superdenseangle_param': ideal_encoding_params.append(init_encoding_params[ii])
                 elif    encoding_choice.lower() == 'wavefunction_param': ideal_encoding_params.append(init_encoding_params[ii])
         
-        noisy_costs[ii] = ClassificationCircuit(qubits, data_test, noise_choice, noise_values).build_classifier(ideal_params[ii], encoding_choice, ideal_encoding_params[ii], num_shots, qc, true_labels_test) 
+        noisy_costs[ii] = ClassificationCircuit(classifier_qubits, data_test, qc, noise_choice, noise_values).build_classifier(ideal_params[ii], n_layers,\
+                                                                                                                encoding_choice, ideal_encoding_params[ii],\
+                                                                                                                num_shots, true_labels_test) 
 
         print('\nWith encoding training, the noisy cost is:', noisy_costs[ii])
 
-        noisy_predictions, number_classified_same = generate_noisy_classification(ideal_params[ii], noise_choice, noise_values, encoding_choice, ideal_encoding_params[ii], qc, num_shots, data_test, predicted_labels_ideal)
+        noisy_predictions, number_classified_same = generate_noisy_classification(ideal_params[ii], n_layers, noise_choice, noise_values, \
+                                                                                encoding_choice, ideal_encoding_params[ii], qc, classifier_qubits, num_shots,\
+                                                                                data_test, predicted_labels_ideal)
         print('The proportion classified differently after noise with learned encoding is:', 1 - number_classified_same)
 
     for ii, encoding_choice in enumerate(encodings):
@@ -160,28 +173,62 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
     return encodings, ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs
 
 if __name__ == "__main__":
-    main(train=False, retrain=True, data_choice='random_vertical_boundary',noise_choice='amp_damp_before_measurement', noise_values=0.3)
+    # main(train=False, retrain=True, data_choice='random_vertical_boundary',noise_choice='amp_damp_before_measurement', noise_values=0.3)
 
-    # datasets = ['moons', 'random_vertical_boundary', 'random_diagonal_boundary']
+    datasets = ['moons', 'random_vertical_boundary', 'random_diagonal_boundary']
+    # datasets = ['moons', 'random_vertical_boundary']
 
-    # ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs  = [[] for _ in range(6)]
+    # datasets = ['moons', 'random_vertical_boundary']
 
-    # for data in datasets:
-    #     print('\n**********************************')
-    #     print('\nThe dataset is:', data)
-    #     print('\n**********************************')
+    ideal_costs_run, noisy_costs_uncorrected_run, noisy_costs_run  = [[] for _ in range(3)]
+    n_runs = 5
+    for run in range(n_runs):
+        ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs  = [[] for _ in range(6)]
+        print('\n**********************************')
+        print('\nThis is run:', run)
+        print('\n**********************************')
 
-    #     output = main(train=False, retrain=False, data_choice=data, noise_choice='amp_damp_before_measurement', noise_values=0.3)
+        for data in datasets:
+            print('\n**********************************')
+            print('\nThe dataset is:', data)
+            print('\n**********************************')
 
-    #     ideal_params.append(output[1])
-    #     init_encoding_params.append(output[2]) 
-    #     ideal_encoding_params.append(output[3]) 
-    #     ideal_costs.append(output[4]) 
-    #     noisy_costs_uncorrected.append(output[5])
-    #     noisy_costs.append(output[6])
+            output = main(train=False, retrain=False, data_choice=data, noise_choice='amp_damp_before_measurement', noise_values=0.3)
 
-    # encodings = output[0]
+            ideal_params.append(output[1])
+            init_encoding_params.append(output[2]) 
+            ideal_encoding_params.append(output[3]) 
+            ideal_costs.append(output[4]) 
+            noisy_costs_uncorrected.append(output[5])
+            noisy_costs.append(output[6])
 
-    # plt.rcParams.update({"font.size": 11, "font.serif":"Computer Moden Roman"})
+        noisy_costs = np.array(noisy_costs)
+        noisy_costs_uncorrected = np.array(noisy_costs_uncorrected)
+        ideal_costs = np.array(ideal_costs)
 
-    # plot_encoding_algo(datasets, encodings, ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs)
+        ideal_costs_run.append(ideal_costs)
+        noisy_costs_uncorrected_run.append(noisy_costs_uncorrected)
+        noisy_costs_run.append(noisy_costs)
+    
+    encodings = output[0]
+
+    noisy_costs_run             = np.array(noisy_costs_run)
+    noisy_costs_uncorrected_run = np.array(noisy_costs_uncorrected_run)
+    ideal_costs_run             = np.array(ideal_costs_run)
+
+    ideal_costs_mean = np.mean(ideal_costs_run, axis=0)
+    ideal_costs_std = np.std(ideal_costs_run, axis=0)
+
+    noisy_costs_mean = np.mean(noisy_costs_run, axis=0)
+    noisy_costs_std = np.std(noisy_costs_run, axis=0)
+
+    noisy_costs_uncorrected_mean = np.mean(noisy_costs_uncorrected_run, axis=0)
+    noisy_costs_uncorrected_std = np.std(noisy_costs_uncorrected_run, axis=0)
+
+    plt.rcParams.update({"font.size": 11, "font.serif":"Computer Moden Roman"})
+
+    costs = [ideal_costs_mean, ideal_costs_std,\
+            noisy_costs_mean, noisy_costs_std,\
+            noisy_costs_uncorrected_mean, noisy_costs_uncorrected_std]
+    
+    plot_encoding_algo(datasets, encodings, ideal_params, init_encoding_params, ideal_encoding_params, costs)

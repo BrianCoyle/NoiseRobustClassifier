@@ -77,7 +77,8 @@ class GeneralisedWaveFunctionEncoding:
         self.qc = qc
 
         # Available qubits on Rigetti chip
-        self.device_qubits = self.qc.qubits() # List of qubits available on chip
+        self.device_qubits = [self.qc.qubits()[0]] # List of qubits available on chip
+        # TODO: If the *classification* qubits are different from *device* qubits, this breaks
 
         # Write each circuit
         for ind in range(len(self.circuits)):
@@ -116,7 +117,6 @@ class GeneralisedWaveFunctionEncoding:
 
         # Get the qubit indices
         qubit_indices = self.device_qubits # NOTE: Brian changed to work with chip indices not range(self.num_qubits)
-
         # Return the program
         return Program(gate, U_gate(*tuple(qubit_indices)))
 

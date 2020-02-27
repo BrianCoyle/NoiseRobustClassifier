@@ -43,7 +43,7 @@ def classifier_params(classifier_qubits, values, n_layers=1):
         value : Union[float, int]
             Initial parameter value that appears in all gates.
     """
-   
+
     if len(classifier_qubits) == 1:
         values = list(np.array(values).reshape(len(classifier_qubits), n_layers, 3))
         params = { qubit: list(values[ii]) for ii, qubit in enumerate(classifier_qubits)}  
@@ -60,15 +60,13 @@ def classifier_params(classifier_qubits, values, n_layers=1):
                                 [values[8]],\
                                 ]} # General 2 qubit unitary parameters
 
-
-    print('Parameters are:', params)
-
+    # print('Parameters are:', params)
     return Parameters(params)
 
 
 def add_measurement(circuit, qubits):
     """
-    Add measure instructions to and declare classical memory
+        Add measure instructions to and declare classical memory
     """
     ro = circuit.declare('ro', 'BIT', 1)
 
@@ -78,8 +76,8 @@ def add_measurement(circuit, qubits):
 
 def compute_label(results):
     """
-    Counts the number of 0's in a list of results, if it is greater than
-    then number of 1's, output label = 0, else output label = 1 
+        Counts the number of 0's in a list of results, if it is greater than
+        then number of 1's, output label = 0, else output label = 1 
     """
     new_result = list(results)
 
@@ -107,6 +105,7 @@ class ClassificationCircuit(BaseAnsatz):
         # get parameters for the ansatz
         self.data = CData(feature_vectors)
         self.classifier_qubits = classifier_qubits
+        
         self.noise_model = noise
         self.noise_params = noise_params
         self.qc = qc
@@ -145,6 +144,7 @@ class ClassificationCircuit(BaseAnsatz):
             self.circuits = GeneralisedWaveFunctionEncoding(self.data, self.encoding_params, self.qc).circuits
         else: raise ValueError("Encoding not defined")
 
+     
         return self
 
     def _add_class_circuits(self, num_shots=None):
@@ -155,6 +155,9 @@ class ClassificationCircuit(BaseAnsatz):
             enc_circuit.circuit = NoisyCircuits(enc_circuit.circuit, self.params, self.classifier_qubits,\
                                                 noise=self.noise_model, noise_params=self.noise_params,\
                                                 qc=self.qc, num_shots=num_shots).circuit
+            # enc_circuit.circuit = self.qc.compiler.quil_to_native_quil(NoisyCircuits(enc_circuit.circuit, self.params, self.classifier_qubits,\
+            #                                     noise=self.noise_model, noise_params=self.noise_params,\
+            #                                     qc=self.qc, num_shots=num_shots).circuit)
 
         return self
 
@@ -173,9 +176,7 @@ class ClassificationCircuit(BaseAnsatz):
         self.device_qubits = self.qc.qubits()
         executables = []
         for ii, enc_circuit in enumerate(self.circuits):
-            
-            # enc_circuit.circuit = add_measurement(enc_circuit.circuit, self.device_qubits)
-            # enc_circuit.circuit.wrap_in_numshots_loop(num_shots)
+
             if self.noise_model is not None and self.noise_model.lower() == 'decoherence_symmetric_ro':
                 enc_circuit.circuit.wrap_in_numshots_loop(num_shots)
                 executables.append(self.qc.compile(enc_circuit.circuit, to_native_gates=False, optimize=False)) # compile noisy circuit onto chip
@@ -184,22 +185,15 @@ class ClassificationCircuit(BaseAnsatz):
 
                 enc_circuit.circuit = add_measurement(enc_circuit.circuit, self.device_qubits)
                 enc_circuit.circuit.wrap_in_numshots_loop(num_shots)
-                # native_gates = qc.compiler.quil_to_native_quil(enc_circuit.circuit)
-                # print(native_gates.native_quil_metadata)
-                # executable = qc.compiler.native_quil_to_executable(native_gates)
+  
                 executables.append(self.qc.compile(enc_circuit.circuit, optimize=False, to_native_gates=False))
-            # print('Circuit is:', enc_circuit.circuit)
-            # print('NATIVE GATES:\n', native_gates)
+
             results = self.qc.run(executables[ii])
 
 
             label = compute_label(results) 
     
-            labels.append(label)
-        print('\n Circuit is:', self.circuits[0])
-
-        # print('\nExecutable is:', executables[0])
-
+            labels.append(label)\
 
         self.predicted_labels = np.array(labels)
         return self.predicted_labels
@@ -224,7 +218,7 @@ class ClassificationCircuit(BaseAnsatz):
         return predicted_labels
     
     def build_classifier(self, param_values, n_layers, encoding_choice, encoding_params, num_shots, true_labels):
-       
+
         self.params = classifier_params(self.classifier_qubits, param_values, n_layers)
         self._encoding(encoding_choice, encoding_params)
         self._add_class_circuits()
@@ -248,7 +242,7 @@ def build_classifier_encoding(encoding_params, encoding_choice, param_values, no
     circ._encoding(encoding_choice, encoding_params)
 
     circ._add_class_circuits()
-    predicted_labels = circ._predict(qc, num_shots)
+    predicted_labels = circ._predict(num_shots)
     cost = circ._compute_cost(true_labels) / len(true_labels)
 
 
