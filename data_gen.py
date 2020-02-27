@@ -8,6 +8,9 @@ from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
+"""
+    This file generates data for the given experiments
+"""
 def grid_pts(nx=12, ny=12):
     """
     Generates a grid of points given by specified number of x and y points

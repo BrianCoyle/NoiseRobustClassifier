@@ -1,9 +1,7 @@
 from single_qubit_classifier import generate_noisy_classification
 import matplotlib.pyplot as plt
 import numpy as np
-
 from math import isclose
-
 import nisqai
 from pyquil import get_qc, Program
 from pyquil.api import WavefunctionSimulator
@@ -21,7 +19,6 @@ from scipy.optimize import minimize
 from collections import Counter
 import random
 from sklearn.datasets import make_circles, make_moons
-
 from noise_models import add_noisy_gate_to_circ
 from classifier_circuits import *
 from data_gen import *
@@ -29,10 +26,14 @@ from single_qubit_classifier import train_classifier, train_classifier_encoding,
 from plots import plot_correct_classifications, scatter, plot_encoding_algo
 from data_gen import generate_data, remove_zeros
 
+"""
+    This file runs simulates Algorithm 1 : QELA and tries to find optimal encodings for each dataset given a 
+    particular value of noise.
+"""
 
 def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp_before_measurement', noise_values=0.3):
     
-    ### Firstly, generate for dataset:
+    ### Firstly, generate the dataset:
 
     data_train, data_test, true_labels_train, true_labels_test = generate_data(data_choice, num_points=500, split=True)
 
@@ -40,8 +41,7 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
     data_test, true_labels_test     = remove_zeros(data_test, true_labels_test)
 
     encodings = [  'denseangle_param','wavefunction_param', 'superdenseangle_param' ]
-    # encodings = [  'wavefunction_param' ]
-# superdenseangle_param
+
     minimal_costs, ideal_costs, noisy_costs, noisy_costs_uncorrected = [np.ones(len(encodings)) for _ in range(4)]
 
     qc_name     = '1q-qvm'
@@ -173,12 +173,10 @@ def main(train=False, retrain=False, data_choice='moons', noise_choice='amp_damp
     return encodings, ideal_params, init_encoding_params, ideal_encoding_params, ideal_costs, noisy_costs_uncorrected, noisy_costs
 
 if __name__ == "__main__":
+    # Uncomment for a single run
     # main(train=False, retrain=True, data_choice='random_vertical_boundary',noise_choice='amp_damp_before_measurement', noise_values=0.3)
 
     datasets = ['moons', 'random_vertical_boundary', 'random_diagonal_boundary']
-    # datasets = ['moons', 'random_vertical_boundary']
-
-    # datasets = ['moons', 'random_vertical_boundary']
 
     ideal_costs_run, noisy_costs_uncorrected_run, noisy_costs_run  = [[] for _ in range(3)]
     n_runs = 5

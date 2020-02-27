@@ -6,7 +6,9 @@ import os
 from pyquil.api import get_qc
 import argparse
 
-
+"""
+    Some functions for printing information to file
+"""
 
 def make_dir(path):
 	'''Makes an directory in the given \'path\', if it does not exist already'''
