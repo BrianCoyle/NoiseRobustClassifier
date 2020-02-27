@@ -3,7 +3,11 @@ Code to implement numerical results in "Robust Data Encodings for Quantum Classi
 arXiv:
 
 Running these functions will generate the figures seen in the above paper.
-
+ 
+Requirements:
+ - Numpy
+ - PyQuil
+ - [NISQAI](https://github.com/QuantumAI-lib/NISQAI)
 
 ``python3 visualise_datasets.py``
 
@@ -40,6 +44,6 @@ condition deciding misclassification. Set 'encoding' = 'wavefunction_param' for 
 ``python3 fidelity_analysis_two_qubit.py``
 
  
--Generates Fig 12 for the two qubit classifier on the Iris dataset, for each type of noise.
+- Generates Fig 12 for the two qubit classifier on the Iris dataset, for each type of noise.
 *NOTE:* This approach does not use the Rigetti simulator, instead simulates the density matrices directly.
 
