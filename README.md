@@ -6,7 +6,7 @@ Running these functions will generate the figures seen in the above paper.
  
 Requirements:
  - Numpy
- - PyQuil
+ - [PyQuil](http://docs.rigetti.com/en/stable/start.html)
  - [NISQAI](https://github.com/QuantumAI-lib/NISQAI)
 
 ``python3 visualise_datasets.py``
