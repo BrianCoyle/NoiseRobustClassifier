@@ -4,11 +4,10 @@ arXiv:
 
 Running these functions will generate the figures seen in the above paper.
 
-===========================================================================
-python3 visualise_datasets.py
 
-=========================================================================== 
-Generates Figure 4 for each 2d Dataset studied.
+``python3 visualise_datasets.py``
+
+- Generates Figure 4 for each 2d Dataset studied.
 
 
 ===========================================================================
