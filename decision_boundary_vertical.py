@@ -33,7 +33,7 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
     '''
     # We use the transpose of the (scaled to unit square) Moons dataset in order to see a non-linear decision boundary
     '''
-    data_vertical_train, data_vertical_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points = 100, split=True)
+    data_vertical_train, data_vertical_test, true_labels_train, true_labels_test = generate_data('random_vertical_boundary', num_points=500, split=True)
 
     ### Next, generate correct classification parameters for dataset (perfect classification):
     '''
@@ -42,7 +42,7 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
 
     qc_name = '1q-qvm'
     qc = get_qc(qc_name)
-    num_shots = 512
+    num_shots = 1024
     device_qubits = qc.qubits()
     classifier_qubits = device_qubits
     n_layers = 1
@@ -50,11 +50,11 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
     if encoding.lower() == 'denseangle_param':
         encoding_choice = 'denseangle_param'
         # init_encoding_params = [np.pi, 2*np.pi]
-        init_encoding_params = [2*np.pi, 2*np.pi]
+        init_encoding_params = [np.pi, 2*np.pi]
 
-    elif encoding.lower() == 'wavefunction':
-        encoding_choice = 'wavefunction'
-        init_encoding_params = [1, 1]
+    elif encoding.lower() == 'wavefunction' or encoding.lower() == 'wavefunction_param':
+        encoding_choice = 'wavefunction_param'
+        init_encoding_params = [0]
 
     optimiser = 'Powell' 
 
@@ -75,21 +75,15 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
             '''
             # 100% Classification parameters (modulo points on the boundary)
             '''
-            ideal_params_vertical = [3.8208,1.525,0.0808]
-            
-        elif encoding_choice.lower() == 'wavefunction':
+            # ideal_params_vertical = [3.8208,1.525,0.0808]
+            ideal_params_vertical = [1.67814786, 1.56516469, 1.77820848]
+        elif encoding_choice.lower() == 'wavefunction_param':
             '''
             # 78% Classification parameters (modulo points on the boundary)
             '''
             ideal_params_vertical =  [ 2.2921198,  0.61375299, -5.15252796]
 
-
-
-    # print('These give a cost of:', ClassificationCircuit(qubits, data_vertical_train).build_classifier(ideal_params_vertical, encoding_choice, init_encoding_params, num_shots, qc, true_labels_train))
-    # predicted_labels = ClassificationCircuit(qubits, data_vertical_train).make_predictions(ideal_params_vertical, encoding_choice, init_encoding_params, num_shots, qc)
-    # plot_correct_classifications(true_labels_train, predicted_labels, data_vertical_train)
-    # nisqai.visual.scatter(data_vertical_train, true_labels_train, predicted_labels)
-
+    plt.rcParams.update({"font.size": 20, "font.serif": "Computer Modern Roman"})
 
     ### Overlay decision bounday
     '''
@@ -114,9 +108,9 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
         plt.show()
 
 
-    ## Define noise parameters
+    ### Define noise parameters
     '''
-    # Define noise parameters to add to model to determine how classification is affected.
+        # Define noise parameters to add to model to determine how classification is affected.
     '''
 
     noise_choice  ='amp_damp_before_measurement'
@@ -124,29 +118,22 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
 
     ### Add noise to circuit and classify
     '''
-    # Add noise to circuit, and determine number of points classified differently (not mis-classified since we can't achieve perfect classification)
+        # Add noise to circuit, and determine number of points classified differently (not mis-classified since we can't achieve perfect classification)
     '''
-    # noisy_predictions, number_misclassified = generate_noisy_classification(
-    #                                                                     ideal_params_vertical, noise_choice, noise_values, 
-    #                                                                     encoding_choice, init_encoding_params, qc,
-    #                                                                     num_shots, data_vertical_test, predicted_labels_test)
-    # print('The proportion classified differently after noise is:', number_misclassified)
-
     
     if noise:
         ## Overlay decision boundary
         '''
         # Generate Grid of datapoints to determine and visualise ideal decision boundary WITH noise added
         '''
-        predicted_labels_test_noise = ClassificationCircuit(classifier_qubits, data_vertical_test,\
-                     noise_choice, noise_values).make_predictions(ideal_params_vertical, n_layers, encoding_choice, init_encoding_params,\
-                                                                 num_shots, qc)
+        predicted_labels_test_noise = ClassificationCircuit(classifier_qubits, data_vertical_test, qc,\
+                     noise_choice, noise_values).make_predictions(ideal_params_vertical, n_layers, encoding_choice, init_encoding_params, num_shots)
         plot_params = {'colors': ['blue', 'orange'], 'alpha': 1}
         scatter(data_vertical_test, true_labels_test, predicted_labels_test_noise, **plot_params)
 
-        predicted_labels_grid_noise = ClassificationCircuit(classifier_qubits, data_grid, \
+        predicted_labels_grid_noise = ClassificationCircuit(classifier_qubits, data_grid, qc,\
                                                             noise_choice, noise_values).make_predictions(ideal_params_vertical, n_layers, \
-                                                            encoding_choice, init_encoding_params, num_shots, qc)
+                                                            encoding_choice, init_encoding_params, num_shots)
 
         plot_params = {'colors': ['red', 'green'], 'alpha': 0.2}
         scatter(data_grid, predicted_labels_grid_noise, **plot_params)
@@ -160,11 +147,12 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
         [alpha_1, alpha_2, alpha_3] = params
         [x_1, x_2] = data_point
 
-        [theta, phi] = encoding_params
         if encoding_choice.lower() == 'denseangle_param':
+            [theta, phi] = encoding_params
             function = (np.sin(alpha_2) )**2 * ( np.cos(theta * x_1) )**2  + (np.cos(alpha_2))**2 * (np.sin(theta * x_1))**2 \
                         + ((1/2)*(np.sin(2 * alpha_2) * np.sin(2 * theta * x_1) * np.exp(-1j*(2 * alpha_3 + phi * x_2)))).real
-        elif encoding_choice.lower() == 'wavefunction':
+        elif encoding_choice.lower() == 'wavefunction_param':
+            [theta] = encoding_params
             l2_norm = np.linalg.norm(np.array([x_1, x_2]))**2
             function = (np.sin(alpha_2)**2 ) * ( x_1**2/(l2_norm) )  + (np.cos(alpha_2)**2) * (x_2**2/(l2_norm)) \
                         + ((1/(2*l2_norm))*(np.sin(2 * alpha_2) * (x_1) * (x_2) * np.exp(-1j*(2 * alpha_3)))).real
@@ -240,86 +228,86 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
         # Uncomment below for 3d plots
         # ----------------------
 
-        fig = plt.figure(figsize=plt.figaspect(0.33))
-        ax1 = fig.add_subplot(1, 3, 1, projection='3d')
-        surf1 = ax1.plot_surface(X, Y, test_acc_ideal, cmap=cm.coolwarm_r,linewidth=0, antialiased=False)
-        # ax1.set_zlim(0.45, 1.01)
-        cbar1 =fig.colorbar(surf1)
-        cbar1.ax.set_ylabel('Test Accuracy')
-
-        ax2 = fig.add_subplot(1, 3, 2, projection='3d')
-        surf2 = ax2.plot_surface(X, Y, test_acc_noise, cmap=cm.coolwarm_r, linewidth=0, antialiased=False)
-        # ax2.set_zlim(0.45, 1.01)
-        cbar2 = fig.colorbar(surf2)
-        cbar2.ax.set_ylabel('Test Accuracy')
-
-        ax3 = fig.add_subplot(1, 3, 3, projection='3d')
-
-        surf3 = ax3.plot_surface(X, Y, number_robust, cmap=cm.PuOr, linewidth=0, antialiased=False)
-        cbar3 = fig.colorbar(surf3)
-        cbar3.ax.set_ylabel('Proportion robust')
-
-        ax1.set_ylabel(r'$\theta (rads)$')
-        ax1.set_xlabel(r'$\phi (rads)$' )
-        ax1.set_title(  'Best accuracy ideal: '             + str( round( test_acc_ideal[max_acc_indices_ideal] , 2) ) \
-                        + '\nBest accuracy with noise: '    + str( round( test_acc_noise[max_acc_indices_ideal] , 2) ) \
-                        + '\nRobustness: '                  + str( round( number_robust[max_acc_indices_ideal]  , 2) ) + '\n' \
-                        + r'$[\theta, \phi]$ = '            + '['+str(round(theta [ max_acc_indices_ideal[0] ], 2) )+ ', ' + str( round( phi [ max_acc_indices_ideal[1] ] , 2) ) + ']' )
-        
-        ax2.set_ylabel(r'$\theta (rads)$')
-        ax2.set_xlabel(r'$\phi (rads)$' )
-        ax2.set_title(  'Best accuracy with noise: '    + str( round( test_acc_noise[max_acc_indices]   , 2) ) \
-                        + '\nBest accuracy ideal: '     + str( round( test_acc_ideal[max_acc_indices]   , 2) ) \
-                        + '\nRobustness: '               + str( round( number_robust[max_acc_indices]    , 2) ) + '\n' \
-                        + r'$[\theta, \phi]$ = '        + '['+str(theta [ max_acc_indices[0] ])+ ', ' + str(round( phi [ max_acc_indices[1] ], 2) ) + ']' )
-
-        ax3.set_ylabel(r'$\theta (rads)$')
-        ax3.set_xlabel(r'$\phi (rads)$' )
-        ax3.set_title('Max. robustness: '               + str( round( number_robust[max_robust_indices]  , 2) ) \
-                        +'\nBest accuracy with noise: ' + str( round( test_acc_noise[max_robust_indices] , 2) ) \
-                        +'\nBest accuracy ideal: '      + str( round( test_acc_ideal[max_robust_indices] , 2) ) + '\n'\
-                        +r'$[\theta, \phi]$ = '         + '[' + str(theta [ max_robust_indices[0] ]) \
-                                                        + ', ' + str(phi [ max_robust_indices[1] ] ) + ']' )
-        
-        
-        ## 2D PLOTS
-        # fig, ax = plt.subplots(1, 3)
-        # im0 = ax[0].imshow(test_acc_ideal, cmap=cm.coolwarm_r, extent=[0, 2*np.pi,2*np.pi, 0])
-        # divider = make_axes_locatable(ax[0])
-        # cax = divider.append_axes('right', size='5%', pad=0.1)
-        # cbar0 = fig.colorbar(im0, cax=cax, orientation='vertical')
-
-        # cbar0.ax.set_ylabel('Test Accuracy')
-
-        # im1 =  ax[1].imshow(test_acc_noise, cmap=cm.coolwarm_r, extent=[0, 2*np.pi,2*np.pi, 0])
-        # divider = make_axes_locatable(ax[1])
-        # cax = divider.append_axes('right', size='5%', pad=0.1)
-        # cbar1 = fig.colorbar(im1, cax=cax, orientation='vertical')
-
+        # fig = plt.figure(figsize=plt.figaspect(0.33))
+        # ax1 = fig.add_subplot(1, 3, 1, projection='3d')
+        # surf1 = ax1.plot_surface(X, Y, test_acc_ideal, cmap=cm.coolwarm_r,linewidth=0, antialiased=False)
+        # # ax1.set_zlim(0.45, 1.01)
+        # cbar1 =fig.colorbar(surf1)
         # cbar1.ax.set_ylabel('Test Accuracy')
 
-        # im2 = ax[2].imshow(number_robust, cmap=cm.PuOr, extent=[0, 2*np.pi, 2*np.pi, 0])
-        # divider = make_axes_locatable(ax[2])
-        # cax = divider.append_axes('right', size='5%', pad=0.1)
-        # cbar2 = fig.colorbar(im2, cax=cax, orientation='vertical')
+        # ax2 = fig.add_subplot(1, 3, 2, projection='3d')
+        # surf2 = ax2.plot_surface(X, Y, test_acc_noise, cmap=cm.coolwarm_r, linewidth=0, antialiased=False)
+        # # ax2.set_zlim(0.45, 1.01)
+        # cbar2 = fig.colorbar(surf2)
+        # cbar2.ax.set_ylabel('Test Accuracy')
 
-        # cbar2.ax.set_ylabel('Proportion robust')
+        # ax3 = fig.add_subplot(1, 3, 3, projection='3d')
 
-        # ax[0].set_title(  'Best accuracy ideal: '             + str( round( test_acc_ideal[max_acc_indices_ideal] , 2) ) \
+        # surf3 = ax3.plot_surface(X, Y, number_robust, cmap=cm.PuOr, linewidth=0, antialiased=False)
+        # cbar3 = fig.colorbar(surf3)
+        # cbar3.ax.set_ylabel('Proportion robust')
+
+        # ax1.set_ylabel(r'$\theta (rads)$')
+        # ax1.set_xlabel(r'$\phi (rads)$' )
+        # ax1.set_title(  'Best accuracy ideal: '             + str( round( test_acc_ideal[max_acc_indices_ideal] , 2) ) \
         #                 + '\nBest accuracy with noise: '    + str( round( test_acc_noise[max_acc_indices_ideal] , 2) ) \
         #                 + '\nRobustness: '                  + str( round( number_robust[max_acc_indices_ideal]  , 2) ) + '\n' \
         #                 + r'$[\theta, \phi]$ = '            + '['+str(round(theta [ max_acc_indices_ideal[0] ], 2) )+ ', ' + str( round( phi [ max_acc_indices_ideal[1] ] , 2) ) + ']' )
-
-        # ax[1].set_title(  'Best accuracy with noise: '    + str( round( test_acc_noise[max_acc_indices]   , 2) ) \
+        
+        # ax2.set_ylabel(r'$\theta (rads)$')
+        # ax2.set_xlabel(r'$\phi (rads)$' )
+        # ax2.set_title(  'Best accuracy with noise: '    + str( round( test_acc_noise[max_acc_indices]   , 2) ) \
         #                 + '\nBest accuracy ideal: '     + str( round( test_acc_ideal[max_acc_indices]   , 2) ) \
         #                 + '\nRobustness: '               + str( round( number_robust[max_acc_indices]    , 2) ) + '\n' \
         #                 + r'$[\theta, \phi]$ = '        + '['+str(theta [ max_acc_indices[0] ])+ ', ' + str(round( phi [ max_acc_indices[1] ], 2) ) + ']' )
 
-        # ax[2].set_title('Max. robustness: '               + str( round( number_robust[max_robust_indices]  , 2) ) \
+        # ax3.set_ylabel(r'$\theta (rads)$')
+        # ax3.set_xlabel(r'$\phi (rads)$' )
+        # ax3.set_title('Max. robustness: '               + str( round( number_robust[max_robust_indices]  , 2) ) \
         #                 +'\nBest accuracy with noise: ' + str( round( test_acc_noise[max_robust_indices] , 2) ) \
         #                 +'\nBest accuracy ideal: '      + str( round( test_acc_ideal[max_robust_indices] , 2) ) + '\n'\
         #                 +r'$[\theta, \phi]$ = '         + '[' + str(theta [ max_robust_indices[0] ]) \
         #                                                 + ', ' + str(phi [ max_robust_indices[1] ] ) + ']' )
+        
+        
+        ## 2D PLOTS
+        fig, ax = plt.subplots(1, 3)
+        im0 = ax[0].imshow(test_acc_ideal, cmap=cm.coolwarm_r, extent=[0, 2*np.pi,2*np.pi, 0])
+        divider = make_axes_locatable(ax[0])
+        cax = divider.append_axes('right', size='5%', pad=0.1)
+        cbar0 = fig.colorbar(im0, cax=cax, orientation='vertical')
+
+        cbar0.ax.set_ylabel('Test Accuracy')
+
+        im1 =  ax[1].imshow(test_acc_noise, cmap=cm.coolwarm_r, extent=[0, 2*np.pi,2*np.pi, 0])
+        divider = make_axes_locatable(ax[1])
+        cax = divider.append_axes('right', size='5%', pad=0.1)
+        cbar1 = fig.colorbar(im1, cax=cax, orientation='vertical')
+
+        cbar1.ax.set_ylabel('Test Accuracy')
+
+        im2 = ax[2].imshow(number_robust, cmap=cm.PuOr, extent=[0, 2*np.pi, 2*np.pi, 0])
+        divider = make_axes_locatable(ax[2])
+        cax = divider.append_axes('right', size='5%', pad=0.1)
+        cbar2 = fig.colorbar(im2, cax=cax, orientation='vertical')
+
+        cbar2.ax.set_ylabel('Proportion robust')
+
+        ax[0].set_title(  'Best accuracy ideal: '             + str( round( test_acc_ideal[max_acc_indices_ideal] , 2) ) \
+                        + '\nBest accuracy with noise: '    + str( round( test_acc_noise[max_acc_indices_ideal] , 2) ) \
+                        + '\nRobustness: '                  + str( round( number_robust[max_acc_indices_ideal]  , 2) ) + '\n' \
+                        + r'$[\theta, \phi]$ = '            + '['+str(round(theta [ max_acc_indices_ideal[0] ], 2) )+ ', ' + str( round( phi [ max_acc_indices_ideal[1] ] , 2) ) + ']' )
+
+        ax[1].set_title(  'Best accuracy with noise: '    + str( round( test_acc_noise[max_acc_indices]   , 2) ) \
+                        + '\nBest accuracy ideal: '     + str( round( test_acc_ideal[max_acc_indices]   , 2) ) \
+                        + '\nRobustness: '               + str( round( number_robust[max_acc_indices]    , 2) ) + '\n' \
+                        + r'$[\theta, \phi]$ = '        + '['+str(theta [ max_acc_indices[0] ])+ ', ' + str(round( phi [ max_acc_indices[1] ], 2) ) + ']' )
+
+        ax[2].set_title('Max. robustness: '               + str( round( number_robust[max_robust_indices]  , 2) ) \
+                        +'\nBest accuracy with noise: ' + str( round( test_acc_noise[max_robust_indices] , 2) ) \
+                        +'\nBest accuracy ideal: '      + str( round( test_acc_ideal[max_robust_indices] , 2) ) + '\n'\
+                        +r'$[\theta, \phi]$ = '         + '[' + str(theta [ max_robust_indices[0] ]) \
+                                                        + ', ' + str(phi [ max_robust_indices[1] ] ) + ']' )
 
         return
 
@@ -339,4 +327,5 @@ def main(train=False, encoding='denseangle_param', ideal=False, noise=False, ana
         plt.show()
 
 if __name__ == "__main__":
-    main(train=False, encoding='denseangle_param', ideal=False, noise=False, analytic=False, compare=True)
+    # main(train=False, encoding='denseangle_param', ideal=False, noise=False, analytic=True, compare=False)
+    main(train=False, encoding='wavefunction_param', ideal=False, noise=False, analytic=True, compare=False)

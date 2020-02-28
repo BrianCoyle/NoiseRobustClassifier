@@ -177,7 +177,7 @@ def plot_number_misclassified_pauli_noise(ideal_params, num_shots, encoding_choi
 
     return
 
-def scatter(data, labels=None, predictions=None, show=False, **kwargs):
+def scatter(data, labels=None, predictions=None, show=False, title=False, **kwargs):
     """Shows a scatter plot for two-dimensional data. Points are colored by label if labels are provided.
     Args:
         data : numpy.ndarray
@@ -206,7 +206,8 @@ def scatter(data, labels=None, predictions=None, show=False, **kwargs):
     else: LINEWIDTH = 2
 
     # plt.rcParams.update({"font.size": 16, "font.family": "serif", "font.weight": "bold"})
-    plt.rcParams.update({"font.size": 12, "font.serif": "Computer Modern Roman"})
+    # Change plot parameters    
+    plt.rcParams.update({"font.size": 16, "font.serif": "Computer Modern Roman"})
 
     # Make sure we have the correct input type
     if not isinstance(data, ndarray):
@@ -260,20 +261,19 @@ def scatter(data, labels=None, predictions=None, show=False, **kwargs):
         for point in data:
             # Scatter the points
             plt.scatter(point[0], point[1], s=SIZE, alpha=ALPHA)
-
-    # Put the score on the title
-    if predictions is not None and labels is not None:
-        if type(predictions) is not np.array or type(labels) is not np.array:
-            num_wrong = 0
-            for ii, pred_label in enumerate(predictions):
-                num_wrong += abs( labels[ii] - pred_label )
-        else:
-            num_wrong = sum(abs(labels - predictions))
-            percent_correct = 100.0 - num_wrong / len(labels) * 100.0
-            plt.title("Test Accuracy: %0.3f" % percent_correct + "%")
-    
+    if title:
+        # Put the score on the title (NOT shown by default)
+        if predictions is not None and labels is not None:
+            if type(predictions) is not np.array or type(labels) is not np.array:
+                num_wrong = 0
+                for ii, pred_label in enumerate(predictions):
+                    num_wrong += abs( labels[ii] - pred_label )
+            else:
+                num_wrong = sum(abs(labels - predictions))
+                percent_correct = 100.0 - num_wrong / len(labels) * 100.0
+                plt.title("Test Accuracy: %0.3f" % percent_correct + "%")
+        
     if show: plt.show()
-
     
 def plot_encoding_algo(datasets, encodings, ideal_params, init_encoding_params, ideal_encoding_params, costs):
 
